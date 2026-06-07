@@ -236,12 +236,13 @@ model ChildProfile {
   avatarUrl  String?
 
   // Gamification state
-  xp         Int @default(0)
-  level      Int @default(1)
-  coins      Int @default(0)
-  streakDays Int @default(0)
-  longestStreak Int @default(0)
+  xp            Int      @default(0)
+  level         Int      @default(1)
+  coins         Int      @default(0)
+  streakDays    Int      @default(0)
+  longestStreak Int      @default(0)
   lastActiveAt  DateTime?
+  lastStreakDate DateTime? // date (midnight) of last streak-qualifying activity
 
   // Relations
   lessonProgress  LessonProgress[]
@@ -249,6 +250,7 @@ model ChildProfile {
   savingsGoals    SavingsGoal[]
   badges          ChildBadge[]
   aiConversations AIConversation[]
+  quizAttempts    QuizAttempt[]
 
   deletedAt DateTime?
   createdAt DateTime  @default(now())
@@ -301,8 +303,9 @@ model Lesson {
   xpReward        Int
   published       Boolean @default(false)
 
-  quiz     Quiz?
-  progress LessonProgress[]
+  contentBlocks ContentBlock[]
+  quiz          Quiz?
+  progress      LessonProgress[]
 
   deletedAt DateTime?
   createdAt DateTime  @default(now())
@@ -312,6 +315,34 @@ model Lesson {
   @@index([courseId, orderIndex])
   @@index([published])
   @@index([deletedAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// CONTENT BLOCKS
+// ─────────────────────────────────────────────────────────────
+
+model ContentBlock {
+  id       String @id @default(uuid()) @db.Uuid
+  lessonId String @db.Uuid
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  type       ContentBlockType
+  orderIndex Int
+  content    Json             // shape depends on type
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([lessonId, orderIndex])
+}
+
+enum ContentBlockType {
+  TEXT
+  IMAGE
+  VIDEO
+  TIP
+  CHALLENGE
+  SUMMARY
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -326,6 +357,7 @@ model Quiz {
   passingScore Int @default(60) // percentage required to pass
 
   questions QuizQuestion[]
+  attempts  QuizAttempt[]
 
   deletedAt DateTime?
   createdAt DateTime  @default(now())
@@ -362,6 +394,30 @@ enum QuestionType {
   TRUE_FALSE
   DRAG_DROP
   CALCULATION
+}
+
+// ─────────────────────────────────────────────────────────────
+// QUIZ ATTEMPT — per-submission record
+// ─────────────────────────────────────────────────────────────
+
+model QuizAttempt {
+  id      String       @id @default(uuid()) @db.Uuid
+  childId String       @db.Uuid
+  child   ChildProfile @relation(fields: [childId], references: [id])
+  quizId  String       @db.Uuid
+  quiz    Quiz         @relation(fields: [quizId], references: [id])
+
+  score      Int      // 0–100 percentage
+  passed     Boolean
+  answers    Json     // { questionId: string, answer: string | string[] }[]
+  xpEarned   Int      @default(0)
+  isPerfect  Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([childId, quizId])
+  @@index([childId, createdAt(sort: Desc)])
 }
 
 // ─────────────────────────────────────────────────────────────
