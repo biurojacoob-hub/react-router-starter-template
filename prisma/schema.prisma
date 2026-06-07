@@ -1,0 +1,519 @@
+// ============================================================
+// Family Finance Academy — Prisma Schema
+// PostgreSQL · UUID PKs · Soft delete · Full normalization
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────
+
+enum UserRole {
+  PARENT
+  CHILD
+  ADMIN
+}
+
+enum AgeGroup {
+  EXPLORER   // 6–8
+  LEARNER    // 9–11
+  ACHIEVER   // 12–14
+  MASTER     // 15–18
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum SubscriptionTier {
+  FREE
+  FAMILY
+  FAMILY_PLUS
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  PAUSED
+}
+
+enum MissionStatus {
+  AVAILABLE
+  ACTIVE
+  COMPLETED
+  FAILED
+  ABANDONED
+}
+
+enum BadgeCategory {
+  EDUCATION
+  FINANCIAL
+  STREAK
+  FAMILY
+  AI
+  SPECIAL
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+}
+
+// ─────────────────────────────────────────────────────────────
+// USER
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique
+  firstName String
+  lastName  String
+  role      UserRole @default(PARENT)
+
+  // Family membership
+  familyId  String?  @db.Uuid
+  family    Family?  @relation(fields: [familyId], references: [id])
+
+  // Parent-specific relations
+  childProfiles  ChildProfile[] @relation("ParentChildren")
+  childProfileAs ChildProfile?  @relation("UserChildProfile")
+
+  // Soft delete
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([familyId])
+  @@index([deletedAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// FAMILY
+// ─────────────────────────────────────────────────────────────
+
+model Family {
+  id               String           @id @default(uuid()) @db.Uuid
+  name             String
+  subscriptionTier SubscriptionTier @default(FREE)
+
+  members      User[]
+  childProfiles ChildProfile[]
+  subscription Subscription?
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([deletedAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// CHILD PROFILE
+// ─────────────────────────────────────────────────────────────
+
+model ChildProfile {
+  id       String   @id @default(uuid()) @db.Uuid
+  userId   String?  @unique @db.Uuid  // null for demo/anonymous children
+  user     User?    @relation("UserChildProfile", fields: [userId], references: [id])
+
+  parentId String   @db.Uuid
+  parent   User     @relation("ParentChildren", fields: [parentId], references: [id])
+
+  familyId String   @db.Uuid
+  family   Family   @relation(fields: [familyId], references: [id])
+
+  firstName  String
+  lastName   String
+  birthYear  Int
+  ageGroup   AgeGroup
+  avatarUrl  String?
+
+  // Gamification state
+  xp         Int @default(0)
+  level      Int @default(1)
+  coins      Int @default(0)
+  streakDays Int @default(0)
+  longestStreak Int @default(0)
+  lastActiveAt  DateTime?
+
+  // Relations
+  lessonProgress  LessonProgress[]
+  missionProgress MissionProgress[]
+  savingsGoals    SavingsGoal[]
+  badges          ChildBadge[]
+  aiConversations AIConversation[]
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([parentId])
+  @@index([familyId])
+  @@index([userId])
+  @@index([ageGroup])
+  @@index([deletedAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// COURSE
+// ─────────────────────────────────────────────────────────────
+
+model Course {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique     // "E1", "L2", "A3", "M1"
+  title       String
+  description String
+  ageGroup    AgeGroup
+  orderIndex  Int
+
+  lessons Lesson[]
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([ageGroup])
+  @@index([orderIndex])
+  @@index([deletedAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// LESSON
+// ─────────────────────────────────────────────────────────────
+
+model Lesson {
+  id          String @id @default(uuid()) @db.Uuid
+  courseId    String @db.Uuid
+  course      Course @relation(fields: [courseId], references: [id])
+
+  code            String  @unique   // "E1.1", "L2.3"
+  title           String
+  description     String
+  orderIndex      Int
+  durationMinutes Int
+  xpReward        Int
+  published       Boolean @default(false)
+
+  quiz     Quiz?
+  progress LessonProgress[]
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([courseId])
+  @@index([courseId, orderIndex])
+  @@index([published])
+  @@index([deletedAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// QUIZ
+// ─────────────────────────────────────────────────────────────
+
+model Quiz {
+  id       String @id @default(uuid()) @db.Uuid
+  lessonId String @unique @db.Uuid
+  lesson   Lesson @relation(fields: [lessonId], references: [id])
+
+  passingScore Int @default(60) // percentage required to pass
+
+  questions QuizQuestion[]
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model QuizQuestion {
+  id     String @id @default(uuid()) @db.Uuid
+  quizId String @db.Uuid
+  quiz   Quiz   @relation(fields: [quizId], references: [id])
+
+  orderIndex    Int
+  question      String
+  type          QuestionType @default(SINGLE_CHOICE)
+  options       Json         // string[]
+  correctAnswer Json         // string | string[] depending on type
+  explanation   String
+  difficulty    Difficulty   @default(MEDIUM)
+  conceptTag    String?
+  aiGenerated   Boolean      @default(false)
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([quizId])
+  @@index([quizId, orderIndex])
+  @@index([deletedAt])
+}
+
+enum QuestionType {
+  SINGLE_CHOICE
+  MULTI_SELECT
+  TRUE_FALSE
+  DRAG_DROP
+  CALCULATION
+}
+
+// ─────────────────────────────────────────────────────────────
+// MISSION
+// ─────────────────────────────────────────────────────────────
+
+model Mission {
+  id          String     @id @default(uuid()) @db.Uuid
+  title       String
+  description String
+  category    String
+  difficulty  Difficulty @default(MEDIUM)
+  durationDays Int
+  xpReward    Int
+  coinReward  Int
+  ageMin      Int
+  ageMax      Int
+  aiGenerated Boolean    @default(false)
+  published   Boolean    @default(false)
+
+  progress MissionProgress[]
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([published])
+  @@index([ageMin, ageMax])
+  @@index([difficulty])
+  @@index([deletedAt])
+}
+
+model MissionProgress {
+  id        String   @id @default(uuid()) @db.Uuid
+  childId   String   @db.Uuid
+  child     ChildProfile @relation(fields: [childId], references: [id])
+  missionId String   @db.Uuid
+  mission   Mission  @relation(fields: [missionId], references: [id])
+
+  status         MissionStatus @default(ACTIVE)
+  parentVerified Boolean       @default(false)
+  note           String?
+  startedAt      DateTime      @default(now())
+  completedAt    DateTime?
+
+  checkIns MissionCheckIn[]
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([childId, missionId])
+  @@index([childId])
+  @@index([missionId])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model MissionCheckIn {
+  id         String          @id @default(uuid()) @db.Uuid
+  progressId String          @db.Uuid
+  progress   MissionProgress @relation(fields: [progressId], references: [id])
+
+  note        String?
+  checkedInAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([progressId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// SAVINGS GOAL
+// ─────────────────────────────────────────────────────────────
+
+model SavingsGoal {
+  id      String       @id @default(uuid()) @db.Uuid
+  childId String       @db.Uuid
+  child   ChildProfile @relation(fields: [childId], references: [id])
+
+  title         String
+  emoji         String   @default("🎯")
+  targetAmount  Decimal  @db.Decimal(10, 2)
+  currentAmount Decimal  @db.Decimal(10, 2) @default(0)
+  deadline      DateTime?
+  achieved      Boolean  @default(false)
+  achievedAt    DateTime?
+
+  contributions GoalContribution[]
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([childId])
+  @@index([achieved])
+  @@index([deletedAt])
+}
+
+model GoalContribution {
+  id     String      @id @default(uuid()) @db.Uuid
+  goalId String      @db.Uuid
+  goal   SavingsGoal @relation(fields: [goalId], references: [id])
+
+  amount    Decimal  @db.Decimal(10, 2)
+  source    String   // "child" | "parent" | "reward"
+  note      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([goalId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// PROGRESS — LESSON
+// ─────────────────────────────────────────────────────────────
+
+model LessonProgress {
+  id       String       @id @default(uuid()) @db.Uuid
+  childId  String       @db.Uuid
+  child    ChildProfile @relation(fields: [childId], references: [id])
+  lessonId String       @db.Uuid
+  lesson   Lesson       @relation(fields: [lessonId], references: [id])
+
+  completed   Boolean  @default(false)
+  score       Int?     // 0–100, null if not yet quizzed
+  attempts    Int      @default(0)
+  xpEarned    Int      @default(0)
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([childId, lessonId])
+  @@index([childId])
+  @@index([lessonId])
+  @@index([completed])
+}
+
+// ─────────────────────────────────────────────────────────────
+// GAMIFICATION — BADGE
+// ─────────────────────────────────────────────────────────────
+
+model Badge {
+  id          String        @id @default(uuid()) @db.Uuid
+  code        String        @unique
+  name        String
+  description String
+  emoji       String
+  category    BadgeCategory
+  xpReward    Int
+  condition   Json          // { type: string, threshold: number }
+
+  children ChildBadge[]
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([category])
+  @@index([deletedAt])
+}
+
+model ChildBadge {
+  id      String       @id @default(uuid()) @db.Uuid
+  childId String       @db.Uuid
+  child   ChildProfile @relation(fields: [childId], references: [id])
+  badgeId String       @db.Uuid
+  badge   Badge        @relation(fields: [badgeId], references: [id])
+
+  earnedAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([childId, badgeId])
+  @@index([childId])
+  @@index([badgeId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// AI CONVERSATION
+// ─────────────────────────────────────────────────────────────
+
+model AIConversation {
+  id      String       @id @default(uuid()) @db.Uuid
+  childId String       @db.Uuid
+  child   ChildProfile @relation(fields: [childId], references: [id])
+
+  title    String?   // optional summary, set after first exchange
+  messages AIMessage[]
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([childId])
+  @@index([childId, createdAt(sort: Desc)])
+  @@index([deletedAt])
+}
+
+model AIMessage {
+  id             String         @id @default(uuid()) @db.Uuid
+  conversationId String         @db.Uuid
+  conversation   AIConversation @relation(fields: [conversationId], references: [id])
+
+  role    MessageRole
+  content String
+  tokens  Int?
+  model   String?     // "claude-haiku-3-5" | "claude-sonnet-4-5"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([conversationId])
+  @@index([conversationId, createdAt(sort: Asc)])
+}
+
+// ─────────────────────────────────────────────────────────────
+// SUBSCRIPTION
+// ─────────────────────────────────────────────────────────────
+
+model Subscription {
+  id       String @id @default(uuid()) @db.Uuid
+  familyId String @unique @db.Uuid
+  family   Family @relation(fields: [familyId], references: [id])
+
+  plan                SubscriptionTier   @default(FREE)
+  status              SubscriptionStatus @default(TRIALING)
+  stripeCustomerId    String?            @unique
+  stripeSubscriptionId String?           @unique
+  stripePriceId       String?
+  trialEndsAt         DateTime?
+  currentPeriodStart  DateTime?
+  currentPeriodEnd    DateTime?
+  cancelAtPeriodEnd   Boolean            @default(false)
+  renewalDate         DateTime?
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([status])
+  @@index([plan])
+  @@index([renewalDate])
+  @@index([deletedAt])
+}
