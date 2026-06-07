@@ -10,6 +10,7 @@ import {
   dailyPlanUserPrompt,
 } from "../prompts"
 import { checkSafety } from "../safety"
+import { SKILLS_BY_ID } from "@/src/learning/graph/skills"
 import type {
   AgeGroup,
   ChildLearningProfile,
@@ -19,6 +20,7 @@ import type {
   Mission,
   DailyPlan,
 } from "../types"
+import type { Skill } from "@/src/learning/graph/types"
 
 function validateLesson(raw: unknown): AIGeneratedLesson {
   if (!raw || typeof raw !== "object") throw new Error("Invalid lesson format")
@@ -53,11 +55,56 @@ function validateDailyPlan(raw: unknown): DailyPlan {
   return raw as DailyPlan
 }
 
+// ─────────────────────────────────────────────────────────────
+// SKILL-BOUND generators — AI MUST operate within the graph
+// ─────────────────────────────────────────────────────────────
+
+export async function generateLessonForSkill(
+  skillId: string,
+  difficulty: Difficulty = "MEDIUM",
+  profile?: Partial<ChildLearningProfile>
+): Promise<AIGeneratedLesson> {
+  const skill = SKILLS_BY_ID[skillId]
+  if (!skill) throw new Error(`Unknown skill: ${skillId}`)
+
+  return generateLesson(skill.name, skill.ageGroup as AgeGroup, difficulty, {
+    ...profile,
+    skillContext: skill,
+  })
+}
+
+export async function generateQuizForSkill(
+  skillId: string,
+  lessonContent: string,
+  difficulty: Difficulty = "MEDIUM"
+): Promise<AIGeneratedQuiz> {
+  const skill = SKILLS_BY_ID[skillId]
+  if (!skill) throw new Error(`Unknown skill: ${skillId}`)
+
+  return generateQuiz(skill.name, lessonContent, skill.ageGroup as AgeGroup, difficulty)
+}
+
+export async function generateMissionForSkill(
+  skillId: string,
+  profile: ChildLearningProfile
+): Promise<Mission> {
+  const skill = SKILLS_BY_ID[skillId]
+  if (!skill) throw new Error(`Unknown skill: ${skillId}`)
+
+  const system = missionSystemPrompt(skill.ageGroup as AgeGroup)
+  const user = missionUserPrompt({ ...profile, skillFocus: skill.name } as ChildLearningProfile & { skillFocus: string })
+  return generateJSON(system, user, validateMission)
+}
+
+// ─────────────────────────────────────────────────────────────
+// Internal generators (used by skill-bound functions above)
+// ─────────────────────────────────────────────────────────────
+
 export async function generateLesson(
   topic: string,
   ageGroup: AgeGroup,
   difficulty: Difficulty = "MEDIUM",
-  profile?: Partial<ChildLearningProfile>
+  profile?: Partial<ChildLearningProfile> & { skillContext?: Skill }
 ): Promise<AIGeneratedLesson> {
   const system = lessonSystemPrompt(ageGroup)
   const user = lessonUserPrompt(topic, ageGroup, difficulty, profile)
