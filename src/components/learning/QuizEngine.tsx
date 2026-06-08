@@ -5,6 +5,7 @@ import { submitQuiz } from "@/src/actions/learning/submitQuiz"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
+import { XpToast, LevelUpModal } from "@/src/components/gamification/CelebrationModal"
 import type { QuizData } from "@/src/lib/learning/types"
 import type { QuizResult } from "@/src/lib/learning/types"
 
@@ -20,6 +21,8 @@ export function QuizEngine({ quiz, onComplete }: Props) {
   const [result, setResult] = useState<QuizResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [showXpToast, setShowXpToast] = useState(false)
+  const [showLevelUp, setShowLevelUp] = useState(false)
 
   const allAnswered = quiz.questions.every((q) => {
     const a = answers[q.id]
@@ -47,7 +50,13 @@ export function QuizEngine({ quiz, onComplete }: Props) {
           answer: answers[q.id] ?? "",
         }))
         const res = await submitQuiz(quiz.id, payload)
+        if ("error" in res) {
+          setError(res.error)
+          return
+        }
         setResult(res)
+        if (res.xpEarned > 0) setShowXpToast(true)
+        if (res.levelUp) setShowLevelUp(true)
         onComplete?.(res)
       } catch (e) {
         setError(e instanceof Error ? e.message : "Błąd podczas wysyłania quizu")
@@ -57,40 +66,45 @@ export function QuizEngine({ quiz, onComplete }: Props) {
 
   if (result) {
     return (
-      <Card className="border-2 border-primary/30">
-        <CardContent className="pt-6 space-y-4 text-center">
-          <div className="text-5xl">{result.isPerfect ? "🏆" : result.passed ? "🎉" : "📖"}</div>
-          <h3 className="text-xl font-bold">
-            {result.isPerfect ? "Idealnie!" : result.passed ? "Zaliczono!" : "Spróbuj ponownie"}
-          </h3>
-          <p className="text-3xl font-bold text-primary">{result.score}%</p>
-          <p className="text-muted-foreground text-sm">
-            {result.correctCount} z {result.totalCount} poprawnych odpowiedzi
-          </p>
-          {result.xpEarned > 0 && (
-            <div className="inline-flex items-center gap-1.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-3 py-1.5 rounded-full text-sm font-semibold">
-              ⚡ +{result.xpEarned} XP
-            </div>
-          )}
-          {result.levelUp && (
-            <div className="text-primary font-bold animate-pulse">
-              🆙 Nowy poziom: {result.newLevel}!
-            </div>
-          )}
-          {result.newBadges.length > 0 && (
-            <div className="space-y-1">
-              <p className="text-sm font-semibold">Nowe odznaki!</p>
-              <div className="flex flex-wrap justify-center gap-2">
-                {result.newBadges.map((code) => (
-                  <span key={code} className="bg-primary/10 text-primary text-xs px-2 py-1 rounded-full">
-                    🏅 {code}
-                  </span>
-                ))}
+      <>
+        <XpToast
+          xp={result.xpEarned}
+          visible={showXpToast}
+          onDone={() => setShowXpToast(false)}
+        />
+        <LevelUpModal
+          open={showLevelUp}
+          newLevel={result.newLevel}
+          onClose={() => setShowLevelUp(false)}
+        />
+        <Card className="border-2 border-primary/30">
+          <CardContent className="pt-6 space-y-4 text-center">
+            <div className="text-5xl">{result.isPerfect ? "🏆" : result.passed ? "🎉" : "📖"}</div>
+            <h3 className="text-xl font-bold">
+              {result.isPerfect ? "Idealnie!" : result.passed ? "Zaliczono!" : "Spróbuj ponownie"}
+            </h3>
+            <p className="text-3xl font-bold text-primary">{result.score}%</p>
+            <p className="text-muted-foreground text-sm">
+              {result.correctCount} z {result.totalCount} poprawnych odpowiedzi
+            </p>
+            {result.xpEarned > 0 && (
+              <div className="inline-flex items-center gap-1.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-3 py-1.5 rounded-full text-sm font-semibold">
+                ⚡ +{result.xpEarned} XP
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+            {result.levelUp && (
+              <div className="text-primary font-bold animate-pulse">
+                🆙 Nowy poziom: {result.newLevel}!
+              </div>
+            )}
+            {result.newBadges.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-sm font-semibold">Nowe odznaki: {result.newBadges.length}!</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </>
     )
   }
 

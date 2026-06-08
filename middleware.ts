@@ -36,7 +36,11 @@ export default auth(
 
     // Logged-in users shouldn't see sign-in/sign-up
     if (isAuthenticated && AUTH_ONLY_ROUTES.some((r) => pathname.startsWith(r))) {
-      const dest = session!.user.onboardingDone ? "/dashboard" : "/onboarding"
+      const dest = session!.user.onboardingDone
+        ? "/dashboard"
+        : session!.user.role === "CHILD"
+        ? "/child/welcome"
+        : "/onboarding"
       return NextResponse.redirect(new URL(dest, req.url))
     }
 
@@ -53,7 +57,8 @@ export default auth(
       !session!.user.onboardingDone &&
       POST_ONBOARDING_PREFIXES.some((p) => pathname.startsWith(p))
     ) {
-      return NextResponse.redirect(new URL("/onboarding", req.url))
+      const dest = session!.user.role === "CHILD" ? "/child/welcome" : "/onboarding"
+      return NextResponse.redirect(new URL(dest, req.url))
     }
 
     return NextResponse.next()

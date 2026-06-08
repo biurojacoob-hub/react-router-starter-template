@@ -14,7 +14,8 @@ import type { MentorResponse, LongTermMemory } from "@/src/ai/mentor/types"
 import type { ChatMessage } from "@/src/ai/mentor/types"
 
 const FALLBACK_RESPONSE: MentorResponse = {
-  content: "Przepraszam, mam chwilowy problem z połączeniem. Spróbuj ponownie za chwilę! 🙏",
+  message: "Przepraszam, mam chwilowy problem z połączeniem. Spróbuj ponownie za chwilę! 🙏",
+  sessionId: "",
   tokensUsed: 0,
 }
 
@@ -93,7 +94,7 @@ export async function mentorChat(
     if (!rateCheck.allowed) {
       return {
         ...FALLBACK_RESPONSE,
-        content: rateLimitErrorMessage(rateCheck.reason),
+        message: rateLimitErrorMessage(rateCheck.reason),
         rateLimitError: rateCheck.reason,
       }
     }

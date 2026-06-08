@@ -1,34 +1,117 @@
-import type { Metadata } from "next";
-import { Target, Lock, Clock, Zap } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+import type { Metadata } from "next"
+import { redirect } from "next/navigation"
+import { Target, Lock, Clock, Zap } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
+import { auth } from "@/src/auth"
+import { prisma } from "@/src/lib/db"
+import { ALL_CONTENT } from "@/src/content/registry"
+import type { Mission } from "@/src/content/types"
 
-export const metadata: Metadata = { title: "Misje" };
+export const metadata: Metadata = { title: "Misje" }
 
-const missions = [
-  { id: "1", title: "Tydzień bez impulsywnych zakupów", description: "Przez 7 dni zastanów się przed każdym zakupem czy to potrzeba czy zachcianka.", xp: 150, coins: 20, daysLeft: 3, progress: 57, status: "active" },
-  { id: "2", title: "Odłóż 10% kieszonkowego", description: "Przez cały miesiąc odkładaj co najmniej 10% swojego kieszonkowego.", xp: 200, coins: 30, daysLeft: 18, progress: 25, status: "active" },
-  { id: "3", title: "Ukończ 5 lekcji o inwestowaniu", description: "Poznaj podstawy inwestowania przez serię dedykowanych lekcji.", xp: 300, coins: 50, daysLeft: null, progress: 40, status: "active" },
-  { id: "4", title: "Ustaw swój pierwszy cel oszczędnościowy", description: "Stwórz cel oszczędnościowy i zacznij do niego odkładać.", xp: 100, coins: 15, daysLeft: null, progress: 100, status: "completed" },
-  { id: "5", title: "Zaawansowany budżet domowy", description: "Naucz się tworzyć miesięczny budżet jak prawdziwy ekspert finansowy.", xp: 400, coins: 60, daysLeft: null, progress: 0, status: "locked" },
-];
+interface MissionWithStatus extends Mission {
+  status: "active" | "completed" | "available" | "locked"
+  progress: number
+  daysLeft?: number | null
+}
 
-export default function MissionsPage() {
+export default async function MissionsPage() {
+  const session = await auth()
+  if (!session?.user) redirect("/sign-in")
+
+  const child = await prisma.childProfile.findFirst({
+    where: { userId: session.user.id, deletedAt: null },
+    select: {
+      id: true,
+      ageGroup: true,
+      missionProgress: {
+        select: {
+          id: true,
+          status: true,
+          startedAt: true,
+          mission: { select: { id: true, title: true } },
+          checkIns: { select: { id: true } },
+        },
+      },
+      skillProgress: { select: { skillId: true, status: true } },
+    },
+  })
+
+  if (!child) redirect("/onboarding")
+
+  // All missions from content registry (flat)
+  const allContentMissions: Mission[] = ALL_CONTENT.flatMap((sc) => sc.missions)
+
+  // Completed/active mission titles from DB (no direct skillId link in MissionProgress)
+  const activeTitles = new Set(
+    child.missionProgress
+      .filter((mp) => mp.status === "ACTIVE")
+      .map((mp) => mp.mission.title)
+  )
+  const completedTitles = new Set(
+    child.missionProgress
+      .filter((mp) => mp.status === "COMPLETED")
+      .map((mp) => mp.mission.title)
+  )
+  const completedSkillIds = new Set(
+    child.skillProgress.filter((sp) => sp.status === "COMPLETED").map((sp) => sp.skillId)
+  )
+
+  const enriched: MissionWithStatus[] = allContentMissions.map((m) => {
+    if (completedTitles.has(m.title)) {
+      return { ...m, status: "completed", progress: 100 }
+    }
+    if (activeTitles.has(m.title)) {
+      const mp = child.missionProgress.find(
+        (p) => p.mission.title === m.title && p.status === "ACTIVE"
+      )
+      const checkIns = mp?.checkIns.length ?? 0
+      const durationDays = Math.ceil(m.estimatedMinutes / 10) // proxy: 10 min ≈ 1 day
+      const daysSinceStart = mp
+        ? Math.floor((Date.now() - mp.startedAt.getTime()) / (1000 * 60 * 60 * 24))
+        : 0
+      const daysLeft = Math.max(0, durationDays - daysSinceStart)
+      return {
+        ...m,
+        status: "active",
+        progress: Math.min(99, Math.round((checkIns / Math.max(1, durationDays)) * 100)),
+        daysLeft: daysLeft > 0 ? daysLeft : null,
+      }
+    }
+    if (completedSkillIds.has(m.skillId)) {
+      return { ...m, status: "available", progress: 0 }
+    }
+    return { ...m, status: "locked", progress: 0 }
+  })
+
+  const activeCount = enriched.filter((m) => m.status === "active").length
+  const completedCount = enriched.filter((m) => m.status === "completed").length
+  const availableCount = enriched.filter((m) => m.status === "available").length
+
+  // Show active first, then available, then completed, then locked
+  const sorted = [
+    ...enriched.filter((m) => m.status === "active"),
+    ...enriched.filter((m) => m.status === "available"),
+    ...enriched.filter((m) => m.status === "completed"),
+    ...enriched.filter((m) => m.status === "locked"),
+  ]
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-2xl font-bold">Misje</h1>
-        <p className="text-muted-foreground text-sm mt-1">Wyzwania, które kształtują dobre nawyki finansowe</p>
+        <p className="text-muted-foreground text-sm mt-1">
+          Wyzwania, które kształtują dobre nawyki finansowe
+        </p>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: "Aktywne", value: 3, color: "text-violet-600" },
-          { label: "Ukończone", value: 7, color: "text-emerald-600" },
-          { label: "Dostępne", value: 2, color: "text-amber-600" },
+          { label: "Aktywne", value: activeCount, color: "text-violet-600" },
+          { label: "Ukończone", value: completedCount, color: "text-emerald-600" },
+          { label: "Dostępne", value: availableCount, color: "text-amber-600" },
         ].map((s) => (
           <Card key={s.label}>
             <CardContent className="p-4 text-center">
@@ -39,24 +122,31 @@ export default function MissionsPage() {
         ))}
       </div>
 
-      {/* Mission list */}
       <div className="space-y-4">
-        {missions.map((mission) => (
+        {sorted.map((mission) => (
           <Card
             key={mission.id}
             className={mission.status === "locked" ? "opacity-60" : ""}
           >
             <CardContent className="p-5">
               <div className="flex items-start gap-4">
-                <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${
-                  mission.status === "completed" ? "bg-emerald-50 dark:bg-emerald-900/20" :
-                  mission.status === "locked" ? "bg-muted" :
-                  "bg-violet-50 dark:bg-violet-900/20"
-                }`}>
+                <div
+                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${
+                    mission.status === "completed"
+                      ? "bg-emerald-50 dark:bg-emerald-900/20"
+                      : mission.status === "locked"
+                      ? "bg-muted"
+                      : "bg-violet-50 dark:bg-violet-900/20"
+                  }`}
+                >
                   {mission.status === "locked" ? (
                     <Lock className="h-5 w-5 text-muted-foreground" />
                   ) : (
-                    <Target className={`h-5 w-5 ${mission.status === "completed" ? "text-emerald-600" : "text-violet-600"}`} />
+                    <Target
+                      className={`h-5 w-5 ${
+                        mission.status === "completed" ? "text-emerald-600" : "text-violet-600"
+                      }`}
+                    />
                   )}
                 </div>
 
@@ -64,32 +154,50 @@ export default function MissionsPage() {
                   <div className="flex items-start justify-between gap-2 mb-1">
                     <h3 className="font-semibold text-sm">{mission.title}</h3>
                     <div className="flex gap-1.5 shrink-0">
-                      <Badge variant="purple" className="text-[10px] h-4">+{mission.xp} XP</Badge>
-                      <Badge variant="warning" className="text-[10px] h-4">🪙 {mission.coins}</Badge>
+                      <Badge variant="purple" className="text-[10px] h-4">
+                        +{mission.difficulty === "QUICK" ? 50 : mission.difficulty === "STANDARD" ? 100 : 200} XP
+                      </Badge>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground mb-3 leading-relaxed">{mission.description}</p>
+                  <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+                    {mission.description}
+                  </p>
 
                   {mission.status === "active" && (
                     <div className="flex items-center gap-3">
-                      <Progress value={mission.progress} className="flex-1 h-2" indicatorClassName="bg-violet-500" />
+                      <Progress
+                        value={mission.progress}
+                        className="flex-1 h-2"
+                        indicatorClassName="bg-violet-500"
+                      />
                       <span className="text-xs font-medium w-8">{mission.progress}%</span>
-                      {mission.daysLeft && (
+                      {mission.daysLeft ? (
                         <span className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Clock className="h-3 w-3" /> {mission.daysLeft}d
                         </span>
-                      )}
+                      ) : null}
+                    </div>
+                  )}
+                  {mission.status === "available" && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-amber-600 font-semibold">
+                        ✓ Gotowa do rozpoczęcia
+                      </span>
                     </div>
                   )}
                   {mission.status === "completed" && (
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-emerald-600 font-semibold">✓ Misja ukończona!</span>
+                      <span className="text-xs text-emerald-600 font-semibold">
+                        ✓ Misja ukończona!
+                      </span>
                     </div>
                   )}
                   {mission.status === "locked" && (
                     <div className="flex items-center gap-2">
                       <Zap className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">Odblokuj po ukończeniu poprzednich misji</span>
+                      <span className="text-xs text-muted-foreground">
+                        Ukończ skill &ldquo;{mission.skillId}&rdquo; aby odblokować
+                      </span>
                     </div>
                   )}
                 </div>
@@ -99,5 +207,5 @@ export default function MissionsPage() {
         ))}
       </div>
     </div>
-  );
+  )
 }

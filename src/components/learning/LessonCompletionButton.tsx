@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react"
 import { completeLesson } from "@/src/actions/learning/completeLesson"
 import { Button } from "@/components/ui/button"
+import { XpToast, LevelUpModal } from "@/src/components/gamification/CelebrationModal"
 import type { CompleteLessonResult } from "@/src/lib/learning/types"
 
 type Props = {
@@ -16,6 +17,8 @@ export function LessonCompletionButton({ lessonId, alreadyCompleted, onComplete 
   const [result, setResult] = useState<CompleteLessonResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [showXpToast, setShowXpToast] = useState(false)
+  const [showLevelUp, setShowLevelUp] = useState(false)
 
   if (done && !result) {
     return (
@@ -27,21 +30,31 @@ export function LessonCompletionButton({ lessonId, alreadyCompleted, onComplete 
 
   if (result) {
     return (
-      <div className="rounded-xl border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950/30 p-4 space-y-1 text-center">
-        <p className="font-semibold text-green-700 dark:text-green-300">✓ Lekcja ukończona!</p>
-        {result.xpEarned > 0 && (
-          <p className="text-sm">⚡ +{result.xpEarned} XP</p>
-        )}
-        {result.levelUp && (
-          <p className="text-sm font-bold text-primary">🆙 Poziom {result.newLevel}!</p>
-        )}
-        {result.streakIncremented && (
-          <p className="text-sm">🔥 Seria: {result.streakDays} dni</p>
-        )}
-        {result.newBadges.length > 0 && (
-          <p className="text-sm">🏅 Nowe odznaki: {result.newBadges.join(", ")}</p>
-        )}
-      </div>
+      <>
+        <XpToast
+          xp={result.xpEarned}
+          visible={showXpToast}
+          onDone={() => setShowXpToast(false)}
+        />
+        <LevelUpModal
+          open={showLevelUp}
+          newLevel={result.newLevel}
+          onClose={() => setShowLevelUp(false)}
+        />
+        <div className="rounded-xl border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950/30 p-4 space-y-1 text-center">
+          <p className="font-semibold text-green-700 dark:text-green-300">✓ Lekcja ukończona!</p>
+          {result.xpEarned > 0 && <p className="text-sm">⚡ +{result.xpEarned} XP</p>}
+          {result.levelUp && (
+            <p className="text-sm font-bold text-primary">🆙 Poziom {result.newLevel}!</p>
+          )}
+          {result.streakIncremented && (
+            <p className="text-sm">🔥 Seria: {result.streakDays} dni</p>
+          )}
+          {result.newBadges.length > 0 && (
+            <p className="text-sm">🏅 Nowe odznaki: {result.newBadges.length}</p>
+          )}
+        </div>
+      </>
     )
   }
 
@@ -56,8 +69,14 @@ export function LessonCompletionButton({ lessonId, alreadyCompleted, onComplete 
           startTransition(async () => {
             try {
               const res = await completeLesson(lessonId)
+              if ("error" in res) {
+                setError(res.error)
+                return
+              }
               setResult(res)
               setDone(true)
+              if (res.xpEarned > 0) setShowXpToast(true)
+              if (res.levelUp) setShowLevelUp(true)
               onComplete?.(res)
             } catch (e) {
               setError(e instanceof Error ? e.message : "Błąd podczas oznaczania lekcji")

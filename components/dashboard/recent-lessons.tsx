@@ -1,56 +1,60 @@
-import Link from "next/link";
-import { ArrowRight, Clock, BookOpen } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+import Link from "next/link"
+import { ArrowRight, Clock, BookOpen } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Progress } from "@/components/ui/progress"
 
-const lessons = [
-  {
-    id: "1",
-    title: "Czym jest budżet domowy?",
-    category: "Oszczędzanie",
-    duration: 8,
-    progress: 100,
-    xp: 50,
-  },
-  {
-    id: "2",
-    title: "Potrzeby vs zachcianki",
-    category: "Wydawanie",
-    duration: 10,
-    progress: 60,
-    xp: 60,
-  },
-  {
-    id: "3",
-    title: "Jak działa kieszonkowe?",
-    category: "Zarabianie",
-    duration: 7,
-    progress: 0,
-    xp: 45,
-  },
-];
+interface LessonItem {
+  id: string
+  title: string
+  category: string
+  duration?: number
+  progress: number
+  xpReward: number
+  courseId?: string
+}
+
+interface RecentLessonsProps {
+  lessons: LessonItem[]
+}
 
 const categoryColors: Record<string, string> = {
   Oszczędzanie: "success",
   Wydawanie: "warning",
   Zarabianie: "purple",
   Inwestowanie: "default",
-};
+  Budżetowanie: "success",
+  Planowanie: "purple",
+}
 
-export function RecentLessons() {
+export function RecentLessons({ lessons }: RecentLessonsProps) {
+  if (lessons.length === 0) {
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Ostatnie lekcje</CardTitle>
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/courses">
+              Wszystkie <ArrowRight className="ml-1 h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground text-center py-4">
+            Zacznij pierwszą lekcję! 🚀
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-base">Ostatnie lekcje</CardTitle>
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/lessons">
+          <Link href="/courses">
             Wszystkie <ArrowRight className="ml-1 h-3.5 w-3.5" />
           </Link>
         </Button>
@@ -70,38 +74,29 @@ export function RecentLessons() {
               </div>
               <div className="flex items-center gap-2 mb-2">
                 <Badge
-                  variant={
-                    (categoryColors[lesson.category] as "success" | "warning" | "purple" | "default") ||
-                    "default"
-                  }
+                  variant={(categoryColors[lesson.category] as "success" | "warning" | "purple" | "default") ?? "default"}
                   className="text-[10px] h-4"
                 >
                   {lesson.category}
                 </Badge>
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Clock className="h-3 w-3" />
-                  {lesson.duration} min
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  +{lesson.xp} XP
-                </span>
+                {lesson.duration && (
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    {lesson.duration} min
+                  </span>
+                )}
+                <span className="text-xs text-muted-foreground">+{lesson.xpReward} XP</span>
               </div>
               {lesson.progress > 0 && lesson.progress < 100 && (
-                <Progress
-                  value={lesson.progress}
-                  className="h-1.5"
-                  indicatorClassName="bg-sky-500"
-                />
+                <Progress value={lesson.progress} className="h-1.5" indicatorClassName="bg-sky-500" />
               )}
               {lesson.progress === 100 && (
-                <span className="text-xs text-emerald-600 font-medium">
-                  ✓ Ukończona
-                </span>
+                <span className="text-xs text-emerald-600 font-medium">✓ Ukończona</span>
               )}
             </div>
           </div>
         ))}
       </CardContent>
     </Card>
-  );
+  )
 }
