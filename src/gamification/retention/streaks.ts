@@ -1,4 +1,6 @@
 import type { StreakState, StreakStatus, StreakMilestone } from "./types"
+// Single source of truth for streak update logic — used by server actions
+export { computeStreakUpdate, toMidnightUTC } from "@/src/lib/learning/streak"
 
 // ─────────────────────────────────────────────────────────────
 // STREAK MILESTONES

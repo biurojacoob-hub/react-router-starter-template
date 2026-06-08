@@ -9,21 +9,27 @@ import {
   createSession,
   sendMessage,
 } from "@/src/ai/mentor"
+import { checkMentorRateLimit, rateLimitErrorMessage } from "@/src/lib/rate-limit"
 import type { MentorResponse, LongTermMemory } from "@/src/ai/mentor/types"
 import type { ChatMessage } from "@/src/ai/mentor/types"
 
-async function resolveLongTermMemory(childId: string): Promise<LongTermMemory> {
-  const stored = await prisma.aIConversation.findFirst({
-    where: { childId, title: { startsWith: "__ltm__" } },
-    orderBy: { updatedAt: "desc" },
-  })
+const FALLBACK_RESPONSE: MentorResponse = {
+  content: "Przepraszam, mam chwilowy problem z połączeniem. Spróbuj ponownie za chwilę! 🙏",
+  tokensUsed: 0,
+}
 
-  if (stored?.title) {
-    try {
+async function resolveLongTermMemory(childId: string): Promise<LongTermMemory> {
+  try {
+    const stored = await prisma.aIConversation.findFirst({
+      where: { childId, title: { startsWith: "__ltm__" } },
+      orderBy: { updatedAt: "desc" },
+    })
+
+    if (stored?.title) {
       return deserializeLongTermMemory(stored.title.replace("__ltm__", ""))
-    } catch {
-      // Fall through
     }
+  } catch (err) {
+    console.error("[mentor/resolveLongTermMemory]", err)
   }
 
   return createLongTermMemory(childId)
@@ -78,41 +84,63 @@ export async function mentorChat(
   sessionId: string,
   conversationHistory: ChatMessage[],
   currentSkillId?: string
-): Promise<MentorResponse> {
-  const session = await auth()
-  if (!session?.user) throw new Error("Unauthorized")
+): Promise<MentorResponse & { rateLimitError?: string }> {
+  try {
+    const session = await auth()
+    if (!session?.user) throw new Error("Unauthorized")
 
-  const ctx = await resolveChildContext(childId, currentSkillId)
-  const longTerm = await resolveLongTermMemory(childId)
+    const rateCheck = checkMentorRateLimit(childId)
+    if (!rateCheck.allowed) {
+      return {
+        ...FALLBACK_RESPONSE,
+        content: rateLimitErrorMessage(rateCheck.reason),
+        rateLimitError: rateCheck.reason,
+      }
+    }
 
-  return sendMessage(
-    { childId, message, sessionId, currentSkillId, conversationHistory },
-    ctx,
-    longTerm
-  )
+    const ctx = await resolveChildContext(childId, currentSkillId)
+    const longTerm = await resolveLongTermMemory(childId)
+
+    return await sendMessage(
+      { childId, message, sessionId, currentSkillId, conversationHistory },
+      ctx,
+      longTerm
+    )
+  } catch (err) {
+    console.error("[mentorChat]", { childId, err })
+    return FALLBACK_RESPONSE
+  }
 }
 
 export async function startMentorSession(
   childId: string
 ): Promise<{ sessionId: string; greeting: string }> {
-  const session = await auth()
-  if (!session?.user) throw new Error("Unauthorized")
+  try {
+    const session = await auth()
+    if (!session?.user) throw new Error("Unauthorized")
 
-  const newSession = createSession(childId)
-  const ctx = await resolveChildContext(childId)
+    const newSession = createSession(childId)
+    const ctx = await resolveChildContext(childId)
 
-  const levelInfo = `Poziom ${ctx.level} (${ctx.xp} XP)`
-  const streakInfo = ctx.streakDays > 0 ? `, seria ${ctx.streakDays} dni 🔥` : ""
+    const levelInfo = `Poziom ${ctx.level} (${ctx.xp} XP)`
+    const streakInfo = ctx.streakDays > 0 ? `, seria ${ctx.streakDays} dni 🔥` : ""
 
-  const greetings: Record<string, string> = {
-    EXPLORER: `Cześć ${ctx.name}! 🌟 Jestem Twoim finansowym pomocnikiem! Gotowy? 😊`,
-    LEARNER: `Hej ${ctx.name}! 💪 Masz ${levelInfo}${streakInfo}. O czym porozmawiamy?`,
-    ACHIEVER: `Hej ${ctx.name}! Jesteś na ${levelInfo}${streakInfo}. Gotowy na poważną rozmowę?`,
-    MASTER: `Witaj ${ctx.name}! ${levelInfo}${streakInfo}. Od czego zaczynamy?`,
-  }
+    const greetings: Record<string, string> = {
+      EXPLORER: `Cześć ${ctx.name}! 🌟 Jestem Twoim finansowym pomocnikiem! Gotowy? 😊`,
+      LEARNER: `Hej ${ctx.name}! 💪 Masz ${levelInfo}${streakInfo}. O czym porozmawiamy?`,
+      ACHIEVER: `Hej ${ctx.name}! Jesteś na ${levelInfo}${streakInfo}. Gotowy na poważną rozmowę?`,
+      MASTER: `Witaj ${ctx.name}! ${levelInfo}${streakInfo}. Od czego zaczynamy?`,
+    }
 
-  return {
-    sessionId: newSession.sessionId,
-    greeting: greetings[ctx.ageGroup] ?? `Cześć ${ctx.name}! Gotowy na lekcję finansów?`,
+    return {
+      sessionId: newSession.sessionId,
+      greeting: greetings[ctx.ageGroup] ?? `Cześć ${ctx.name}! Gotowy na lekcję finansów?`,
+    }
+  } catch (err) {
+    console.error("[startMentorSession]", { childId, err })
+    return {
+      sessionId: createSession(childId).sessionId,
+      greeting: "Cześć! Jestem Twoim mentorem finansowym. Gotowy na naukę? 🌟",
+    }
   }
 }
