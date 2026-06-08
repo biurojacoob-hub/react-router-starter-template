@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { WelcomeWizard } from "./WelcomeWizard"
 import { AvatarPicker } from "./AvatarPicker"
@@ -10,6 +10,7 @@ import { FirstReward } from "./FirstReward"
 import { MentorIntro } from "./MentorIntro"
 import { type OnboardingState, type OnboardingStep } from "./types"
 import type { AvatarCategory } from "@/src/components/avatars/avatarData"
+import { saveChildOnboarding } from "@/src/actions/child/saveOnboarding"
 
 const STEPS: OnboardingStep[] = [
   "WELCOME",
@@ -59,6 +60,8 @@ interface OnboardingOrchestratorProps {
 
 export function OnboardingOrchestrator({ onComplete }: OnboardingOrchestratorProps) {
   const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [state, setState] = useState<OnboardingState>({
     step: "WELCOME",
     childName: "",
@@ -76,7 +79,23 @@ export function OnboardingOrchestrator({ onComplete }: OnboardingOrchestratorPro
   function handleDone() {
     const finalState: OnboardingState = { ...state, step: "DONE" }
     onComplete?.(finalState)
-    router.push("/dashboard")
+
+    startTransition(async () => {
+      const result = await saveChildOnboarding({
+        firstName: finalState.childName,
+        ageGroup: finalState.ageGroup ?? "EXPLORER",
+        avatarId: finalState.avatarId,
+        goalId: finalState.goalId,
+        xpEarned: finalState.xpEarned,
+      })
+
+      if (!result.success) {
+        setSaveError(result.error ?? "Wystąpił błąd. Spróbuj ponownie.")
+        return
+      }
+
+      router.push("/dashboard")
+    })
   }
 
   const { step, childName, avatarId, ageGroup, xpEarned } = state
@@ -136,6 +155,21 @@ export function OnboardingOrchestrator({ onComplete }: OnboardingOrchestratorPro
           />
         )}
       </div>
+
+      {saveError && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 rounded-2xl bg-destructive px-5 py-3 text-sm text-white shadow-lg">
+          {saveError}
+        </div>
+      )}
+
+      {isPending && (
+        <div className="fixed inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm z-50">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="text-sm font-medium">Zapisuję Twój profil…</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
