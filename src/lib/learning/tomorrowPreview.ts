@@ -9,6 +9,7 @@ export type TomorrowPreview = {
   xpReward: number
   isCapstoneDay: boolean
   lessonHook: string
+  curiosityScore: number  // 1–5: drives glow intensity
 }
 
 export function getTomorrowPreview(params: {
@@ -40,6 +41,12 @@ export function getTomorrowPreview(params: {
   const tomorrow = program.days[tomorrowDay - 1]
   if (!tomorrow) return null
 
+  // curiosityScore: capstone=5, high XP=+1, ADVANCED/INTEGRATION phase=+1, baseline=1
+  const baseScore = tomorrow.isCapstoneDay ? 4 : 1
+  const xpBonus = tomorrow.xpReward >= 80 ? 1 : 0
+  const phaseBonus = (tomorrow.phase === "ADVANCED" || tomorrow.phase === "INTEGRATION") ? 1 : 0
+  const curiosityScore = Math.min(5, baseScore + xpBonus + phaseBonus) as 1 | 2 | 3 | 4 | 5
+
   return {
     day: tomorrowDay,
     title: tomorrow.title,
@@ -48,5 +55,6 @@ export function getTomorrowPreview(params: {
     xpReward: tomorrow.xpReward,
     isCapstoneDay: tomorrow.isCapstoneDay,
     lessonHook: tomorrow.lesson.hook,
+    curiosityScore,
   }
 }

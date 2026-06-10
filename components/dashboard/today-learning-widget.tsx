@@ -42,6 +42,22 @@ export function TodayLearningWidget({ state }: TodayLearningWidgetProps) {
       </CardHeader>
 
       <CardContent className="space-y-3">
+        {/* Story hero block */}
+        {!allDone && (today.engagementHook || today.lesson.hook) && (
+          <div className="rounded-xl bg-white/70 dark:bg-white/5 border border-primary/10 p-4 mb-1">
+            {today.engagementHook && (
+              <p className="text-sm font-semibold leading-snug text-foreground mb-1">
+                {today.engagementHook}
+              </p>
+            )}
+            {today.lesson.hook && (
+              <p className="text-xs text-muted-foreground italic leading-relaxed">
+                &ldquo;{today.lesson.hook}&rdquo;
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Lesson */}
         <ActivityRow
           icon={<BookOpen className="h-4 w-4" />}

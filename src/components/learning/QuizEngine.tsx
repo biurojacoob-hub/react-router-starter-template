@@ -56,7 +56,7 @@ export function QuizEngine({ quiz, onComplete }: Props) {
         }
         setResult(res)
         if (res.xpEarned > 0) setShowXpToast(true)
-        if (res.levelUp) setShowLevelUp(true)
+        if (res.levelUp) setTimeout(() => setShowLevelUp(true), 600)
         onComplete?.(res)
       } catch (e) {
         setError(e instanceof Error ? e.message : "Błąd podczas wysyłania quizu")

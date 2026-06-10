@@ -76,7 +76,7 @@ export function LessonCompletionButton({ lessonId, alreadyCompleted, onComplete 
               setResult(res)
               setDone(true)
               if (res.xpEarned > 0) setShowXpToast(true)
-              if (res.levelUp) setShowLevelUp(true)
+              if (res.levelUp) setTimeout(() => setShowLevelUp(true), 600)
               onComplete?.(res)
             } catch (e) {
               setError(e instanceof Error ? e.message : "Błąd podczas oznaczania lekcji")
