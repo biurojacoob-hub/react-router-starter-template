@@ -8,6 +8,11 @@ import { RecentLessons } from "@/components/dashboard/recent-lessons"
 import { CurrentMissions } from "@/components/dashboard/current-missions"
 import { SavingsGoalWidget } from "@/components/dashboard/savings-goal-widget"
 import { AiMentorWidget } from "@/components/dashboard/ai-mentor-widget"
+import { TodayLearningWidget } from "@/components/dashboard/today-learning-widget"
+import { DailyChallengeCard } from "@/components/dashboard/daily-challenge-card"
+import { getTodayLearningState } from "@/src/lib/learning/todayState"
+import { buildDailyMotivation } from "@/src/gamification/retention/dailyMotivation"
+import { getXpToNextLevel } from "@/src/gamification/retention/progression"
 
 export const metadata: Metadata = { title: "Dashboard" }
 
@@ -24,10 +29,10 @@ export default async function DashboardPage() {
       level: true,
       streakDays: true,
       avatarUrl: true,
-      badges: {
-        select: { badge: { select: { id: true } } },
-        take: 100,
-      },
+      ageGroup: true,
+      createdAt: true,
+      lastActiveAt: true,
+      badges: { select: { badge: { select: { id: true } } }, take: 100 },
       lessonProgress: {
         select: {
           id: true,
@@ -49,26 +54,48 @@ export default async function DashboardPage() {
         select: {
           id: true,
           startedAt: true,
-          mission: {
-            select: { id: true, title: true, xpReward: true, coinReward: true, durationDays: true },
-          },
+          mission: { select: { id: true, title: true, xpReward: true, coinReward: true, durationDays: true } },
           checkIns: { select: { id: true } },
         },
         take: 3,
+      },
+      skillProgress: {
+        where: { status: "COMPLETED" },
+        select: { skillId: true },
       },
     },
   })
 
   if (!child) redirect("/onboarding")
 
-  const [totalLessons, lessonsCompleted, totalMissions, missionsCompleted, totalBadges] =
+  const [totalLessons, lessonsCompleted, totalMissions, missionsCompleted, totalBadges, todayState] =
     await Promise.all([
       prisma.lesson.count({ where: { published: true, deletedAt: null } }),
       prisma.lessonProgress.count({ where: { childId: child.id, completed: true } }),
       prisma.mission.count({ where: { published: true, deletedAt: null } }),
       prisma.missionProgress.count({ where: { childId: child.id, status: "COMPLETED" } }),
       prisma.badge.count(),
+      getTodayLearningState({
+        childId: child.id,
+        ageGroup: child.ageGroup,
+        xp: child.xp,
+        level: child.level,
+        streakDays: child.streakDays,
+        childCreatedAt: child.createdAt,
+        lastActiveAt: child.lastActiveAt,
+        completedSkillIds: child.skillProgress.map((sp) => sp.skillId),
+      }),
     ])
+
+  const motivation = buildDailyMotivation(
+    child.ageGroup,
+    child.streakDays,
+    getXpToNextLevel(child.xp),
+    5,
+    `Dzień ${todayState.currentDay}/30 programu`,
+    new Date().getHours(),
+    child.id.charCodeAt(0) + new Date().getDate()
+  )
 
   const recentLessons = child.lessonProgress.map((lp) => ({
     id: lp.lesson.id,
@@ -85,14 +112,13 @@ export default async function DashboardPage() {
       (Date.now() - mp.startedAt.getTime()) / (1000 * 60 * 60 * 24)
     )
     const daysLeft = Math.max(0, durationDays - daysSinceStart)
-    const progress = Math.min(100, Math.round((checkInCount / durationDays) * 100))
     return {
       id: mp.mission.id,
       title: mp.mission.title,
       xpReward: mp.mission.xpReward,
       coinsReward: mp.mission.coinReward,
       daysLeft: daysLeft > 0 ? daysLeft : null,
-      progress,
+      progress: Math.min(100, Math.round((checkInCount / durationDays) * 100)),
     }
   })
 
@@ -105,6 +131,16 @@ export default async function DashboardPage() {
         streakDays={child.streakDays}
         avatarUrl={child.avatarUrl}
       />
+
+      {/* Daily challenge + comeback — client component, shows on first login today */}
+      <DailyChallengeCard
+        challenge={motivation.dailyChallenge}
+        isFirstLoginToday={todayState.isFirstLoginToday}
+        comebackTier={todayState.comebackTier}
+        daysSinceLastVisit={todayState.daysSinceLastVisit}
+        streakDays={child.streakDays}
+      />
+
       <ProgressOverview
         lessonsCompleted={lessonsCompleted}
         lessonsTotal={totalLessons}
@@ -113,8 +149,11 @@ export default async function DashboardPage() {
         badgesEarned={child.badges.length}
         badgesTotal={totalBadges}
       />
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
+          {/* TODAY — primary retention widget */}
+          <TodayLearningWidget state={todayState} />
           <RecentLessons lessons={recentLessons} />
           <CurrentMissions missions={activeMissions} />
         </div>

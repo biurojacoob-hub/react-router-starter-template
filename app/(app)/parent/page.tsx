@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Users, TrendingUp, Bell, Shield, Plus } from "lucide-react";
+import { Users, TrendingUp, Bell, Shield, Plus, BookOpen, Brain, Target, Zap } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ async function getParentData(userId: string) {
     select: { familyId: true },
   });
 
-  if (!user?.familyId) return { children: [], recentActivity: [] };
+  if (!user?.familyId) return { children: [], recentActivity: [], weeklyInsights: [] };
 
   const children = await prisma.childProfile.findMany({
     where: { familyId: user.familyId, deletedAt: null },
@@ -56,7 +56,48 @@ async function getParentData(userId: string) {
     take: 10,
   });
 
-  return { children, recentActivity };
+  // Weekly insight — last 7 days per child
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+
+  const childIds = children.map((c) => c.id);
+
+  const [weekLessons, weekQuizzes, weekMissions] = await Promise.all([
+    prisma.lessonProgress.groupBy({
+      by: ["childId"],
+      where: { childId: { in: childIds }, completed: true, updatedAt: { gte: weekAgo } },
+      _count: { id: true },
+      _sum: { xpEarned: true },
+    }),
+    prisma.quizAttempt.groupBy({
+      by: ["childId"],
+      where: { childId: { in: childIds }, createdAt: { gte: weekAgo } },
+      _count: { id: true },
+      _avg: { score: true },
+    }),
+    prisma.missionProgress.groupBy({
+      by: ["childId"],
+      where: { childId: { in: childIds }, status: "COMPLETED", completedAt: { gte: weekAgo } },
+      _count: { id: true },
+    }),
+  ]);
+
+  const weeklyInsights = children.map((child) => {
+    const lessons = weekLessons.find((l) => l.childId === child.id);
+    const quizzes = weekQuizzes.find((q) => q.childId === child.id);
+    const missions = weekMissions.find((m) => m.childId === child.id);
+    return {
+      childId: child.id,
+      childName: child.firstName,
+      lessonsThisWeek: lessons?._count.id ?? 0,
+      xpThisWeek: lessons?._sum.xpEarned ?? 0,
+      quizzesThisWeek: quizzes?._count.id ?? 0,
+      avgQuizScore: quizzes?._avg.score ? Math.round(quizzes._avg.score) : null,
+      missionsThisWeek: missions?._count.id ?? 0,
+    };
+  });
+
+  return { children, recentActivity, weeklyInsights };
 }
 
 function timeAgo(date: Date | null): string {
@@ -73,7 +114,7 @@ function timeAgo(date: Date | null): string {
 
 export default async function ParentPage() {
   const session = await requireAuth();
-  const { children, recentActivity } = await getParentData(session.user.id);
+  const { children, recentActivity, weeklyInsights } = await getParentData(session.user.id);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -176,6 +217,42 @@ export default async function ParentPage() {
           );
         })}
       </div>
+
+      {weeklyInsights.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-sky-600" /> Aktywność tego tygodnia
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {weeklyInsights.map((insight) => (
+              <div key={insight.childId} className="rounded-xl border p-4">
+                <p className="font-semibold mb-3">{insight.childName}</p>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {[
+                    { icon: BookOpen, label: "Lekcje", value: insight.lessonsThisWeek, color: "text-sky-600", bg: "bg-sky-50 dark:bg-sky-900/20" },
+                    { icon: Brain, label: "Quizy", value: insight.avgQuizScore !== null ? `${insight.quizzesThisWeek} (śr. ${insight.avgQuizScore}%)` : insight.quizzesThisWeek, color: "text-violet-600", bg: "bg-violet-50 dark:bg-violet-900/20" },
+                    { icon: Target, label: "Misje", value: insight.missionsThisWeek, color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
+                    { icon: Zap, label: "XP", value: `+${insight.xpThisWeek}`, color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-900/20" },
+                  ].map((s) => {
+                    const Icon = s.icon;
+                    return (
+                      <div key={s.label} className={`rounded-lg p-3 ${s.bg} flex items-center gap-2`}>
+                        <Icon className={`h-4 w-4 shrink-0 ${s.color}`} />
+                        <div>
+                          <div className="text-xs text-muted-foreground">{s.label}</div>
+                          <div className="font-bold text-sm">{s.value}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {recentActivity.length > 0 && (
         <Card>
