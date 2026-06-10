@@ -10,7 +10,9 @@ import { SavingsGoalWidget } from "@/components/dashboard/savings-goal-widget"
 import { AiMentorWidget } from "@/components/dashboard/ai-mentor-widget"
 import { TodayLearningWidget } from "@/components/dashboard/today-learning-widget"
 import { DailyChallengeCard } from "@/components/dashboard/daily-challenge-card"
+import { TomorrowHookCard } from "@/components/dashboard/tomorrow-hook-card"
 import { getTodayLearningState } from "@/src/lib/learning/todayState"
+import { getTomorrowPreview } from "@/src/lib/learning/tomorrowPreview"
 import { buildDailyMotivation } from "@/src/gamification/retention/dailyMotivation"
 import { getXpToNextLevel } from "@/src/gamification/retention/progression"
 
@@ -68,6 +70,8 @@ export default async function DashboardPage() {
 
   if (!child) redirect("/onboarding")
 
+  const completedSkillIds = child.skillProgress.map((sp) => sp.skillId)
+
   const [totalLessons, lessonsCompleted, totalMissions, missionsCompleted, totalBadges, todayState] =
     await Promise.all([
       prisma.lesson.count({ where: { published: true, deletedAt: null } }),
@@ -83,9 +87,20 @@ export default async function DashboardPage() {
         streakDays: child.streakDays,
         childCreatedAt: child.createdAt,
         lastActiveAt: child.lastActiveAt,
-        completedSkillIds: child.skillProgress.map((sp) => sp.skillId),
+        completedSkillIds,
       }),
     ])
+
+  const tomorrowPreview = getTomorrowPreview({
+    childId: child.id,
+    ageGroup: child.ageGroup,
+    xp: child.xp,
+    level: child.level,
+    streakDays: child.streakDays,
+    childCreatedAt: child.createdAt,
+    completedSkillIds,
+    currentDay: todayState.currentDay,
+  })
 
   const motivation = buildDailyMotivation(
     child.ageGroup,
@@ -154,6 +169,10 @@ export default async function DashboardPage() {
         <div className="lg:col-span-2 space-y-6">
           {/* TODAY — primary retention widget */}
           <TodayLearningWidget state={todayState} />
+          {/* TOMORROW HOOK — shown when all today's activities are done */}
+          {todayState.dayProgressPercent === 100 && tomorrowPreview && (
+            <TomorrowHookCard preview={tomorrowPreview} />
+          )}
           <RecentLessons lessons={recentLessons} />
           <CurrentMissions missions={activeMissions} />
         </div>
