@@ -1,28 +1,36 @@
-import type { Metadata } from "next";
-import { Sparkles, Send, RefreshCw } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import type { Metadata } from "next"
+import { redirect } from "next/navigation"
+import { Sparkles } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { auth } from "@/src/auth"
+import { prisma } from "@/src/lib/db"
+import { createSession } from "@/src/ai/mentor"
+import { MentorChat } from "@/src/components/mentor/MentorChat"
 
-export const metadata: Metadata = { title: "AI Mentor" };
+export const metadata: Metadata = { title: "AI Mentor" }
 
-const suggestedQuestions = [
-  "Co to jest procent składany i jak działa?",
-  "Jak mądrze wydawać kieszonkowe?",
-  "Dlaczego warto oszczędzać od małego?",
-  "Co to jest inflacja?",
-  "Jak działają banki?",
-  "Czym różni się akcja od obligacji?",
-];
+export default async function AiMentorPage() {
+  const session = await auth()
+  if (!session?.user) redirect("/sign-in")
 
-const messages = [
-  {
-    role: "assistant",
-    content: "Cześć! Jestem Twoim osobistym mentorem finansowym 🤖 Pytaj mnie o wszystko, co dotyczy pieniędzy, oszczędzania i finansów. Wytłumaczę wszystko w prosty sposób!",
-  },
-];
+  const child = await prisma.childProfile.findFirst({
+    where: { userId: session.user.id, deletedAt: null },
+    select: { id: true, firstName: true, ageGroup: true, level: true, streakDays: true },
+  })
 
-export default function AiMentorPage() {
+  if (!child) redirect("/onboarding")
+
+  const { sessionId } = createSession(child.id)
+
+  const greetings: Record<string, string> = {
+    EXPLORER: `Cześć ${child.firstName}! 🌟 Jestem Twoim finansowym pomocnikiem! O czym chcesz się dziś dowiedzieć? 😊`,
+    LEARNER: `Hej ${child.firstName}! 💪 Gotowy na finansowe pytania? Pytaj śmiało!`,
+    ACHIEVER: `Hej ${child.firstName}! Mam dla Ciebie odpowiedzi na każde pytanie finansowe. Zaczynajmy!`,
+    MASTER: `Witaj ${child.firstName}! Jestem tu, żeby dyskutować o finansach na poważnie. Od czego zaczynamy?`,
+  }
+
+  const greeting = greetings[child.ageGroup] ?? `Cześć ${child.firstName}! Jestem Twoim mentorem finansowym. Pytaj o wszystko! 🤖`
+
   return (
     <div className="space-y-6 animate-fade-in max-w-3xl mx-auto">
       {/* Header */}
@@ -37,64 +45,11 @@ export default function AiMentorPage() {
         <Badge variant="purple" className="mt-2">Beta — 50 wiadomości / miesiąc</Badge>
       </div>
 
-      {/* Chat area */}
-      <Card className="min-h-[400px] flex flex-col">
-        <CardContent className="flex-1 p-6 space-y-4">
-          {messages.map((msg, i) => (
-            <div key={i} className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
-              {msg.role === "assistant" && (
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl gradient-brand text-white">
-                  <Sparkles className="h-4 w-4" />
-                </div>
-              )}
-              <div
-                className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                  msg.role === "assistant"
-                    ? "bg-muted rounded-tl-none"
-                    : "gradient-brand text-white rounded-tr-none"
-                }`}
-              >
-                {msg.content}
-              </div>
-            </div>
-          ))}
-        </CardContent>
-
-        {/* Input */}
-        <div className="border-t p-4">
-          <div className="flex gap-3">
-            <input
-              type="text"
-              placeholder="Zadaj pytanie o finanse..."
-              className="flex-1 rounded-xl border bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-            />
-            <Button variant="gradient" size="icon" className="shrink-0">
-              <Send className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </Card>
-
-      {/* Suggested questions */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-sm font-semibold">Sugerowane pytania</p>
-          <Button variant="ghost" size="sm">
-            <RefreshCw className="h-3.5 w-3.5 mr-1" /> Odśwież
-          </Button>
-        </div>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {suggestedQuestions.map((q) => (
-            <button
-              key={q}
-              className="flex items-center gap-2 rounded-xl border bg-card px-4 py-3 text-sm text-left transition-colors hover:bg-accent hover:border-primary/30"
-            >
-              <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
-              {q}
-            </button>
-          ))}
-        </div>
-      </div>
+      <MentorChat
+        childId={child.id}
+        initialGreeting={greeting}
+        sessionId={sessionId}
+      />
     </div>
-  );
+  )
 }
