@@ -17,6 +17,12 @@ import { buildDailyMotivation } from "@/src/gamification/retention/dailyMotivati
 import { getXpToNextLevel } from "@/src/gamification/retention/progression"
 import { DailyHeroCard } from "@/components/dashboard/daily-hero-card"
 import { getHeroTitle } from "@/src/lib/hero/titles"
+import { AdventureMap } from "@/components/dashboard/adventure-map"
+import { DiscoveryWidget } from "@/components/dashboard/discovery-widget"
+import { PrideMomentCard, detectMilestone } from "@/components/dashboard/pride-moment-card"
+import { Season2Teaser } from "@/components/dashboard/season2-teaser"
+import { getLatestUnlockedFact, MONEY_FACTS } from "@/src/lib/discoveries/facts"
+import { getFinnMemoryLine } from "@/src/lib/hero/finnMemory"
 
 export const metadata: Metadata = { title: "Dashboard" }
 
@@ -131,6 +137,26 @@ export default async function DashboardPage() {
 
   const heroTitle = getHeroTitle(child.level)
 
+  // Discoveries
+  const latestFact = getLatestUnlockedFact(todayState.currentDay)
+  const unlockedFactsCount = MONEY_FACTS.filter((f) => f.unlocksOnDay <= todayState.currentDay).length
+
+  // Finn Memory — contextual line from existing data
+  const finnMemoryLine = getFinnMemoryLine({
+    streakDays: child.streakDays,
+    missionsCompleted,
+    badgesEarned: child.badges.length,
+    currentDay: todayState.currentDay,
+    level: child.level,
+    lessonsDoneTotal: lessonsCompleted,
+  })
+
+  // Pride moment milestone detection
+  const prideMilestone = detectMilestone(child.level, todayState.currentDay, todayState.dayProgressPercent)
+
+  // Day 30 complete
+  const isDay30Complete = todayState.currentDay === 30 && todayState.dayProgressPercent === 100
+
   // Next action href: first incomplete activity
   const nextActionHref = !todayState.lessonDoneToday
     ? nextLessonHref
@@ -211,18 +237,42 @@ export default async function DashboardPage() {
         badgesTotal={totalBadges}
       />
 
+      {/* Pride Moment — big milestone celebration */}
+      {prideMilestone && (
+        <PrideMomentCard milestone={prideMilestone} firstName={child.firstName} />
+      )}
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
           {/* TODAY — primary retention widget */}
           <TodayLearningWidget state={todayState} nextLessonHref={nextLessonHref} nextQuizHref={nextQuizHref} />
-          {/* TOMORROW HOOK — shown when all today's activities are done */}
-          {todayState.dayProgressPercent === 100 && tomorrowPreview && (
+
+          {/* Day 30 complete — Season 2 teaser instead of tomorrow hook */}
+          {isDay30Complete ? (
+            <Season2Teaser />
+          ) : todayState.dayProgressPercent === 100 && tomorrowPreview ? (
             <TomorrowHookCard preview={tomorrowPreview} />
-          )}
+          ) : null}
+
           <RecentLessons lessons={recentLessons} />
           <CurrentMissions missions={activeMissions} />
         </div>
         <div className="space-y-6">
+          {/* Adventure Map */}
+          <AdventureMap
+            currentDay={todayState.currentDay}
+            dayProgressPercent={todayState.dayProgressPercent}
+          />
+
+          {/* Discoveries Collection */}
+          {latestFact && (
+            <DiscoveryWidget
+              latestFact={latestFact}
+              totalUnlocked={unlockedFactsCount}
+              totalFacts={MONEY_FACTS.length}
+            />
+          )}
+
           <SavingsGoalWidget goals={child.savingsGoals.map((g) => ({
             id: g.id,
             title: g.title,
@@ -230,7 +280,7 @@ export default async function DashboardPage() {
             targetAmount: Number(g.targetAmount),
             currentAmount: Number(g.currentAmount),
           }))} />
-          <AiMentorWidget firstName={child.firstName} ageGroup={child.ageGroup} />
+          <AiMentorWidget firstName={child.firstName} ageGroup={child.ageGroup} finnMemoryLine={finnMemoryLine} />
         </div>
       </div>
     </div>

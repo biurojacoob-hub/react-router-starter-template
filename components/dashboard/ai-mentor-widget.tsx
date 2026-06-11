@@ -3,6 +3,7 @@ import { ArrowRight, Sparkles } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { FINN } from "@/src/lib/hero/finn"
 
 const SUGGESTED_QUESTIONS = [
   "Co to jest procent składany?",
@@ -13,6 +14,7 @@ const SUGGESTED_QUESTIONS = [
 interface AiMentorWidgetProps {
   firstName: string
   ageGroup: string
+  finnMemoryLine?: string | null
 }
 
 const GREETING_BY_AGE: Record<string, string> = {
@@ -22,14 +24,16 @@ const GREETING_BY_AGE: Record<string, string> = {
   MASTER: "O czym porozmawiamy dziś? Mam dla Ciebie ciekawe pytanie finansowe. 🧠",
 }
 
-export function AiMentorWidget({ firstName, ageGroup }: AiMentorWidgetProps) {
+export function AiMentorWidget({ firstName, ageGroup, finnMemoryLine }: AiMentorWidgetProps) {
   const greeting = GREETING_BY_AGE[ageGroup] ?? "Mam dla Ciebie pytanie na dziś! 👋"
+  const displayLine = finnMemoryLine ?? `Cześć ${firstName}! 👋 ${greeting}`
 
   return (
     <Card className="border-primary/20 bg-gradient-to-br from-sky-50/50 to-violet-50/50 dark:from-sky-900/10 dark:to-violet-900/10">
       <CardHeader className="flex flex-row items-center justify-between">
         <div className="flex items-center gap-2">
-          <CardTitle className="text-base">AI Mentor</CardTitle>
+          <span className="text-lg">{FINN.emoji}</span>
+          <CardTitle className="text-base">{FINN.name}</CardTitle>
           <Badge variant="purple" className="text-[10px] h-4">Beta</Badge>
         </div>
         <Button variant="ghost" size="sm" asChild>
@@ -44,9 +48,7 @@ export function AiMentorWidget({ firstName, ageGroup }: AiMentorWidgetProps) {
             <Sparkles className="h-5 w-5" />
           </div>
           <div className="rounded-2xl rounded-tl-none bg-background border px-4 py-3 text-sm">
-            <p>
-              Cześć {firstName}! 👋 {greeting}
-            </p>
+            <p>{displayLine}</p>
           </div>
         </div>
 
