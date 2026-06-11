@@ -4,6 +4,31 @@ export const FINN = {
   title: "Twój finansowy przewodnik",
 }
 
+// Day opening — Finn sets the scene before child starts
+export const DAILY_START = [
+  "Dzisiejszy dzień to nie lekcja. To misja. Gotowy?",
+  "Coś odkryjesz dziś, czego większość dorosłych nie wie.",
+  "Każda wielka przygoda zaczyna się od jednego kroku. Zaczynam.",
+  "Finn tu jest. Razem odkryjemy dziś coś wyjątkowego.",
+  "Jedna decyzja finansowa zmienia wszystko. Zacznijmy od tej dzisiejszej.",
+]
+
+// After hero action (lesson/quiz/mission primary) completed
+export const HERO_ACTION_COMPLETE = [
+  "Zrobiłeś to co ważne. Reszta to bonus. 💪",
+  "Główna przygoda dnia — zaliczona. Finn jest pod wrażeniem.",
+  "To był najtrudniejszy krok. Gratulacje — naprawdę. ✅",
+  "Wiedza zdobyta. Dzień można uznać za wygrany!",
+]
+
+// After ALL 3 done — full day loop complete
+export const DAY_COMPLETE = [
+  "Trzy aktywności. Jeden dzień. Jeden bohater. To Ty. 🏆",
+  "Pełna przygoda ukończona! Wróć jutro po kolejny rozdział. 🌅",
+  "Finn jest z Ciebie wyjątkowo dumny. Naprawdę — to rzadkość. ⭐",
+  "Dzień zamknięty. Jutro czeka na Ciebie coś jeszcze lepszego. 🚀",
+]
+
 export const FINN_AFTER_DISCOVERY = [
   "Niesamowite! Właśnie nauczyłeś się czegoś, czego większość dorosłych nie rozumie. 🎉",
   "Wow! To odkrycie zostanie z Tobą na całe życie. 💡",

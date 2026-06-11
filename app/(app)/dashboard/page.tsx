@@ -3,23 +3,20 @@ import { redirect } from "next/navigation"
 import { auth } from "@/src/auth"
 import { prisma } from "@/src/lib/db"
 import { WelcomeCard } from "@/components/dashboard/welcome-card"
-import { ProgressOverview } from "@/components/dashboard/progress-overview"
 import { RecentLessons } from "@/components/dashboard/recent-lessons"
 import { CurrentMissions } from "@/components/dashboard/current-missions"
 import { SavingsGoalWidget } from "@/components/dashboard/savings-goal-widget"
 import { AiMentorWidget } from "@/components/dashboard/ai-mentor-widget"
 import { TodayLearningWidget } from "@/components/dashboard/today-learning-widget"
-import { DailyChallengeCard } from "@/components/dashboard/daily-challenge-card"
 import { TomorrowHookCard } from "@/components/dashboard/tomorrow-hook-card"
 import { getTodayLearningState } from "@/src/lib/learning/todayState"
 import { getTomorrowPreview } from "@/src/lib/learning/tomorrowPreview"
-import { buildDailyMotivation } from "@/src/gamification/retention/dailyMotivation"
-import { getXpToNextLevel } from "@/src/gamification/retention/progression"
+import { getDailyAdventureState } from "@/src/lib/learning/dailyAdventure"
 import { DailyHeroCard } from "@/components/dashboard/daily-hero-card"
 import { getHeroTitle } from "@/src/lib/hero/titles"
 import { AdventureMap } from "@/components/dashboard/adventure-map"
 import { DiscoveryWidget } from "@/components/dashboard/discovery-widget"
-import { PrideMomentCard, detectMilestone } from "@/components/dashboard/pride-moment-card"
+import { PrideMomentCard, DailyCompletionCard, detectMilestone } from "@/components/dashboard/pride-moment-card"
 import { Season2Teaser } from "@/components/dashboard/season2-teaser"
 import { getLatestUnlockedFact, MONEY_FACTS } from "@/src/lib/discoveries/facts"
 import { getFinnMemoryLine } from "@/src/lib/hero/finnMemory"
@@ -86,26 +83,22 @@ export default async function DashboardPage() {
 
   const completedSkillIds = child.skillProgress.map((sp) => sp.skillId)
 
-  const [totalLessons, lessonsCompleted, totalMissions, missionsCompleted, totalBadges, todayState] =
-    await Promise.all([
-      prisma.lesson.count({ where: { published: true, deletedAt: null } }),
-      prisma.lessonProgress.count({ where: { childId: child.id, completed: true } }),
-      prisma.mission.count({ where: { published: true, deletedAt: null } }),
-      prisma.missionProgress.count({ where: { childId: child.id, status: "COMPLETED" } }),
-      prisma.badge.count(),
-      getTodayLearningState({
-        childId: child.id,
-        ageGroup: child.ageGroup,
-        xp: child.xp,
-        level: child.level,
-        streakDays: child.streakDays,
-        childCreatedAt: child.createdAt,
-        lastActiveAt: child.lastActiveAt,
-        completedSkillIds,
-      }),
-    ])
+  const [lessonsCompleted, missionsCompleted, todayState] = await Promise.all([
+    prisma.lessonProgress.count({ where: { childId: child.id, completed: true } }),
+    prisma.missionProgress.count({ where: { childId: child.id, status: "COMPLETED" } }),
+    getTodayLearningState({
+      childId: child.id,
+      ageGroup: child.ageGroup,
+      xp: child.xp,
+      level: child.level,
+      streakDays: child.streakDays,
+      childCreatedAt: child.createdAt,
+      lastActiveAt: child.lastActiveAt,
+      completedSkillIds,
+    }),
+  ])
 
-  // Find next recommended lesson + quiz href
+  // Next recommended lesson + quiz hrefs
   const nextLesson = await prisma.lesson.findFirst({
     where: {
       published: true,
@@ -117,12 +110,11 @@ export default async function DashboardPage() {
     orderBy: [{ course: { orderIndex: "asc" } }, { orderIndex: "asc" }],
   })
 
-  const nextLessonHref = nextLesson
-    ? `/courses/${nextLesson.courseId}/lessons/${nextLesson.id}`
-    : "/courses"
-  const nextQuizHref = nextLesson?.quiz
-    ? `/courses/${nextLesson.courseId}/lessons/${nextLesson.id}/quiz`
-    : nextLessonHref
+  const nextLessonHref = nextLesson ? `/courses/${nextLesson.courseId}/lessons/${nextLesson.id}` : "/courses"
+  const nextQuizHref   = nextLesson?.quiz ? `/courses/${nextLesson.courseId}/lessons/${nextLesson.id}/quiz` : nextLessonHref
+
+  // Daily adventure state — pure computation, no DB
+  const adventure = getDailyAdventureState(todayState, nextLessonHref, nextQuizHref)
 
   const tomorrowPreview = getTomorrowPreview({
     childId: child.id,
@@ -138,10 +130,10 @@ export default async function DashboardPage() {
   const heroTitle = getHeroTitle(child.level)
 
   // Discoveries
-  const latestFact = getLatestUnlockedFact(todayState.currentDay)
+  const latestFact         = getLatestUnlockedFact(todayState.currentDay)
   const unlockedFactsCount = MONEY_FACTS.filter((f) => f.unlocksOnDay <= todayState.currentDay).length
 
-  // Finn Memory — contextual line from existing data
+  // Finn Memory line
   const finnMemoryLine = getFinnMemoryLine({
     streakDays: child.streakDays,
     missionsCompleted,
@@ -151,28 +143,16 @@ export default async function DashboardPage() {
     lessonsDoneTotal: lessonsCompleted,
   })
 
-  // Pride moment milestone detection
+  // Milestone detection
   const prideMilestone = detectMilestone(child.level, todayState.currentDay, todayState.dayProgressPercent)
+  const isNamedMilestone = prideMilestone?.type === "level" || prideMilestone?.type === "day"
+  const isDailyComplete  = prideMilestone?.type === "daily"
+  const isDay30Complete  = todayState.currentDay === 30 && todayState.dayProgressPercent === 100
 
-  // Day 30 complete
-  const isDay30Complete = todayState.currentDay === 30 && todayState.dayProgressPercent === 100
-
-  // Next action href: first incomplete activity
-  const nextActionHref = !todayState.lessonDoneToday
-    ? nextLessonHref
-    : !todayState.quizDoneToday
-    ? nextQuizHref
+  // Next action for DailyHeroCard CTA
+  const nextActionHref = !todayState.lessonDoneToday ? nextLessonHref
+    : !todayState.quizDoneToday ? nextQuizHref
     : "/missions"
-
-  const motivation = buildDailyMotivation(
-    child.ageGroup,
-    child.streakDays,
-    getXpToNextLevel(child.xp),
-    5,
-    `Dzień ${todayState.currentDay}/30 programu`,
-    new Date().getHours(),
-    child.id.charCodeAt(0) + new Date().getDate()
-  )
 
   const recentLessons = child.lessonProgress.map((lp) => ({
     id: lp.lesson.id,
@@ -183,12 +163,10 @@ export default async function DashboardPage() {
   }))
 
   const activeMissions = child.missionProgress.map((mp) => {
-    const durationDays = mp.mission.durationDays ?? 1
-    const checkInCount = mp.checkIns.length
-    const daysSinceStart = Math.floor(
-      (Date.now() - mp.startedAt.getTime()) / (1000 * 60 * 60 * 24)
-    )
-    const daysLeft = Math.max(0, durationDays - daysSinceStart)
+    const durationDays  = mp.mission.durationDays ?? 1
+    const checkInCount  = mp.checkIns.length
+    const daysSinceStart = Math.floor((Date.now() - mp.startedAt.getTime()) / (1000 * 60 * 60 * 24))
+    const daysLeft      = Math.max(0, durationDays - daysSinceStart)
     return {
       id: mp.mission.id,
       title: mp.mission.title,
@@ -200,8 +178,9 @@ export default async function DashboardPage() {
   })
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Hero CTA — ONE BIG BUTTON, primary retention surface */}
+    <div className="space-y-5 animate-fade-in">
+
+      {/* ── 1. NARRATIVE START — Finn + story + ONE CTA ── */}
       <DailyHeroCard
         state={todayState}
         nextActionHref={nextActionHref}
@@ -210,44 +189,30 @@ export default async function DashboardPage() {
         firstName={child.firstName}
       />
 
-      <WelcomeCard
-        name={child.firstName}
-        xp={child.xp}
-        level={child.level}
-        streakDays={child.streakDays}
-        avatarUrl={child.avatarUrl}
-        heroTitle={heroTitle}
-      />
-
-      {/* Daily challenge + comeback — client component, shows on first login today */}
-      <DailyChallengeCard
-        challenge={motivation.dailyChallenge}
-        isFirstLoginToday={todayState.isFirstLoginToday}
-        comebackTier={todayState.comebackTier}
-        daysSinceLastVisit={todayState.daysSinceLastVisit}
-        streakDays={child.streakDays}
-      />
-
-      <ProgressOverview
-        lessonsCompleted={lessonsCompleted}
-        lessonsTotal={totalLessons}
-        missionsCompleted={missionsCompleted}
-        missionsTotal={totalMissions}
-        badgesEarned={child.badges.length}
-        badgesTotal={totalBadges}
-      />
-
-      {/* Pride Moment — big milestone celebration */}
-      {prideMilestone && (
+      {/* ── 2. NAMED MILESTONE PRIDE — level 5/10, day 7/14/30 ── */}
+      {isNamedMilestone && prideMilestone && (
         <PrideMomentCard milestone={prideMilestone} firstName={child.firstName} />
       )}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
-          {/* TODAY — primary retention widget */}
-          <TodayLearningWidget state={todayState} nextLessonHref={nextLessonHref} nextQuizHref={nextQuizHref} />
+      {/* ── MAIN LAYOUT GRID ── */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
 
-          {/* Day 30 complete — Season 2 teaser instead of tomorrow hook */}
+        {/* ── Main column (2/3) ── */}
+        <div className="lg:col-span-2 space-y-5">
+
+          {/* 3. TODAY — redesigned: 1 hero action + 2 secondary chips */}
+          <TodayLearningWidget
+            state={todayState}
+            adventure={adventure}
+            activeMissionId={todayState.activeMissionId}
+          />
+
+          {/* 4. DAILY COMPLETION — lighter card on regular completed days */}
+          {isDailyComplete && (
+            <DailyCompletionCard firstName={child.firstName} currentDay={todayState.currentDay} />
+          )}
+
+          {/* 5. WHAT'S NEXT — tomorrow hook or season 2 */}
           {isDay30Complete ? (
             <Season2Teaser />
           ) : todayState.dayProgressPercent === 100 && tomorrowPreview ? (
@@ -257,14 +222,27 @@ export default async function DashboardPage() {
           <RecentLessons lessons={recentLessons} />
           <CurrentMissions missions={activeMissions} />
         </div>
-        <div className="space-y-6">
-          {/* Adventure Map */}
+
+        {/* ── Sidebar (1/3) ── */}
+        <div className="space-y-5">
+
+          {/* Compact identity + XP bar */}
+          <WelcomeCard
+            name={child.firstName}
+            xp={child.xp}
+            level={child.level}
+            streakDays={child.streakDays}
+            avatarUrl={child.avatarUrl}
+            heroTitle={heroTitle}
+          />
+
+          {/* Journey map — where am I in the 30-day adventure */}
           <AdventureMap
             currentDay={todayState.currentDay}
             dayProgressPercent={todayState.dayProgressPercent}
           />
 
-          {/* Discoveries Collection */}
+          {/* Discoveries collection */}
           {latestFact && (
             <DiscoveryWidget
               latestFact={latestFact}
@@ -280,7 +258,13 @@ export default async function DashboardPage() {
             targetAmount: Number(g.targetAmount),
             currentAmount: Number(g.currentAmount),
           }))} />
-          <AiMentorWidget firstName={child.firstName} ageGroup={child.ageGroup} finnMemoryLine={finnMemoryLine} />
+
+          {/* Finn — with memory line when milestone matched */}
+          <AiMentorWidget
+            firstName={child.firstName}
+            ageGroup={child.ageGroup}
+            finnMemoryLine={finnMemoryLine}
+          />
         </div>
       </div>
     </div>
