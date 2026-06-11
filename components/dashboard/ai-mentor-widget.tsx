@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { FINN } from "@/src/lib/hero/finn"
+import { RetentionPulse } from "@/components/dashboard/retention-pulse"
 
 const SUGGESTED_QUESTIONS = [
   "Co to jest procent składany?",
@@ -15,6 +16,9 @@ interface AiMentorWidgetProps {
   firstName: string
   ageGroup: string
   finnMemoryLine?: string | null
+  pulseStatus?: "SAFE" | "AT_RISK" | "CRITICAL"
+  growthComment?: string | null
+  topStrength?: string | null
 }
 
 const GREETING_BY_AGE: Record<string, string> = {
@@ -24,9 +28,11 @@ const GREETING_BY_AGE: Record<string, string> = {
   MASTER: "O czym porozmawiamy dziś? Mam dla Ciebie ciekawe pytanie finansowe. 🧠",
 }
 
-export function AiMentorWidget({ firstName, ageGroup, finnMemoryLine }: AiMentorWidgetProps) {
+export function AiMentorWidget({ firstName, ageGroup, finnMemoryLine, pulseStatus, growthComment, topStrength }: AiMentorWidgetProps) {
   const greeting = GREETING_BY_AGE[ageGroup] ?? "Mam dla Ciebie pytanie na dziś! 👋"
-  const displayLine = finnMemoryLine ?? `Cześć ${firstName}! 👋 ${greeting}`
+  // Priority: memory line > growth comment > generic greeting
+  const displayLine = finnMemoryLine
+    ?? (growthComment ?? `Cześć ${firstName}! 👋 ${greeting}`)
 
   return (
     <Card className="border-primary/20 bg-gradient-to-br from-sky-50/50 to-violet-50/50 dark:from-sky-900/10 dark:to-violet-900/10">
@@ -35,6 +41,7 @@ export function AiMentorWidget({ firstName, ageGroup, finnMemoryLine }: AiMentor
           <span className="text-lg">{FINN.emoji}</span>
           <CardTitle className="text-base">{FINN.name}</CardTitle>
           <Badge variant="purple" className="text-[10px] h-4">Beta</Badge>
+          {pulseStatus && <RetentionPulse status={pulseStatus} />}
         </div>
         <Button variant="ghost" size="sm" asChild>
           <Link href="/ai-mentor">
@@ -51,6 +58,12 @@ export function AiMentorWidget({ firstName, ageGroup, finnMemoryLine }: AiMentor
             <p>{displayLine}</p>
           </div>
         </div>
+
+        {topStrength && (
+          <p className="text-[11px] text-muted-foreground mb-1">
+            💪 Twoja mocna strona: <strong className="text-foreground">{topStrength}</strong>
+          </p>
+        )}
 
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground font-medium">Zapytaj mnie o:</p>

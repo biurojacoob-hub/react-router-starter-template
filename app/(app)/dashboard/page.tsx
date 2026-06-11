@@ -20,6 +20,10 @@ import { PrideMomentCard, DailyCompletionCard, detectMilestone } from "@/compone
 import { Season2Teaser } from "@/components/dashboard/season2-teaser"
 import { getLatestUnlockedFact, MONEY_FACTS } from "@/src/lib/discoveries/facts"
 import { getFinnMemoryLine } from "@/src/lib/hero/finnMemory"
+import { getRetentionState } from "@/src/lib/retention/retentionEngine"
+import { getDailyReward } from "@/src/lib/rewards/variableReward"
+import { getInvisibleGrowth } from "@/src/lib/progression/progressionIllusion"
+import { ComebackMomentCard } from "@/components/dashboard/comeback-moment-card"
 
 export const metadata: Metadata = { title: "Dashboard" }
 
@@ -133,6 +137,33 @@ export default async function DashboardPage() {
   const latestFact         = getLatestUnlockedFact(todayState.currentDay)
   const unlockedFactsCount = MONEY_FACTS.filter((f) => f.unlocksOnDay <= todayState.currentDay).length
 
+  // ── Retention Engine ─────────────────────────────────────────
+  const retentionState = getRetentionState({
+    daysSinceLastVisit: todayState.daysSinceLastVisit,
+    streakDays: child.streakDays,
+    dayProgressPercent: todayState.dayProgressPercent,
+    heroActionDone: adventure.heroActionDone,
+    currentDay: todayState.currentDay,
+    isFirstLoginToday: todayState.isFirstLoginToday,
+  })
+
+  // ── Variable Reward Engine ────────────────────────────────────
+  const dailyReward = getDailyReward(child.id, todayState.currentDay, child.streakDays)
+
+  // ── Progression Illusion ──────────────────────────────────────
+  const growthState = getInvisibleGrowth({
+    lessonsCompleted,
+    missionsCompleted,
+    streakDays: child.streakDays,
+    currentDay: todayState.currentDay,
+    level: child.level,
+    badgesEarned: child.badges.length,
+    dayProgressPercent: todayState.dayProgressPercent,
+  })
+
+  // Comeback — show when first login today AND was away
+  const showComeback = todayState.isFirstLoginToday && todayState.daysSinceLastVisit >= 1
+
   // Finn Memory line
   const finnMemoryLine = getFinnMemoryLine({
     streakDays: child.streakDays,
@@ -189,7 +220,26 @@ export default async function DashboardPage() {
         firstName={child.firstName}
       />
 
-      {/* ── 2. NAMED MILESTONE PRIDE — level 5/10, day 7/14/30 ── */}
+      {/* ── 2. COMEBACK MOMENT — emotional return, variable reward ── */}
+      {showComeback && (
+        <ComebackMomentCard
+          firstName={child.firstName}
+          daysSinceLastVisit={todayState.daysSinceLastVisit}
+          streakDays={child.streakDays}
+          dailyReward={dailyReward}
+          finnNudge={retentionState.finnNudgeMessage}
+        />
+      )}
+
+      {/* ── 3. VARIABLE REWARD BANNER — rare events only ── */}
+      {!showComeback && dailyReward.isRare && (
+        <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-950/30 dark:to-amber-950/20 border border-yellow-300/40 dark:border-yellow-700/30 px-4 py-3">
+          <span className="text-2xl shrink-0">🎰</span>
+          <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300">{dailyReward.rewardMessage}</p>
+        </div>
+      )}
+
+      {/* ── 4. NAMED MILESTONE PRIDE — level 5/10, day 7/14/30 ── */}
       {isNamedMilestone && prideMilestone && (
         <PrideMomentCard milestone={prideMilestone} firstName={child.firstName} />
       )}
@@ -259,11 +309,14 @@ export default async function DashboardPage() {
             currentAmount: Number(g.currentAmount),
           }))} />
 
-          {/* Finn — with memory line when milestone matched */}
+          {/* Finn — with memory line, growth comment, pulse status */}
           <AiMentorWidget
             firstName={child.firstName}
             ageGroup={child.ageGroup}
             finnMemoryLine={finnMemoryLine}
+            pulseStatus={retentionState.pulseStatus}
+            growthComment={growthState.finnCommentOnGrowth}
+            topStrength={growthState.topStrengthName}
           />
         </div>
       </div>

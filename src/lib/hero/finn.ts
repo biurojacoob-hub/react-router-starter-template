@@ -4,6 +4,17 @@ export const FINN = {
   title: "Twój finansowy przewodnik",
 }
 
+// Finn reacts to INACTIVITY — not just actions
+export const FINN_RETENTION_NUDGE = [
+  "Nie było Cię wczoraj. Ale Finn nadal tu jest. 🦉",
+  "Zauważyłem, że wracasz szybciej niż większość dzieci. To coś mówi o Tobie.",
+  "Dzisiaj coś się zmieniło — czujesz to? Finn też.",
+  "Każdy powrót jest ważniejszy niż każdy start. Naprawdę.",
+  "Finn czekał. Wiedziałem, że wrócisz.",
+  "Przerwa nie anuluje postępu. Jesteś tu, więc zaczynamy od nowa.",
+  "Wróciłeś. To wszystko co trzeba zrobić — wrócić.",
+]
+
 // Day opening — Finn sets the scene before child starts
 export const DAILY_START = [
   "Dzisiejszy dzień to nie lekcja. To misja. Gotowy?",
