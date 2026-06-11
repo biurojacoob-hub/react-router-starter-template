@@ -13,27 +13,12 @@ const SUGGESTED_QUESTIONS = [
 ]
 
 interface AiMentorWidgetProps {
-  firstName: string
-  ageGroup: string
-  finnMemoryLine?: string | null
+  finnChatLine: string
   pulseStatus?: "SAFE" | "AT_RISK" | "CRITICAL"
-  growthComment?: string | null
   topStrength?: string | null
 }
 
-const GREETING_BY_AGE: Record<string, string> = {
-  EXPLORER: "Mam dla Ciebie pytanie na dziś: ile procent kieszonkowego odkładasz w tym miesiącu? 🤔",
-  LEARNER: "Gotowy na finansowe wyzwanie? Zapytaj mnie o cokolwiek! 💪",
-  ACHIEVER: "Czego chcesz się dziś nauczyć? Jestem tu, żeby pomóc! 🎯",
-  MASTER: "O czym porozmawiamy dziś? Mam dla Ciebie ciekawe pytanie finansowe. 🧠",
-}
-
-export function AiMentorWidget({ firstName, ageGroup, finnMemoryLine, pulseStatus, growthComment, topStrength }: AiMentorWidgetProps) {
-  const greeting = GREETING_BY_AGE[ageGroup] ?? "Mam dla Ciebie pytanie na dziś! 👋"
-  // Priority: memory line > growth comment > generic greeting
-  const displayLine = finnMemoryLine
-    ?? (growthComment ?? `Cześć ${firstName}! 👋 ${greeting}`)
-
+export function AiMentorWidget({ finnChatLine, pulseStatus, topStrength }: AiMentorWidgetProps) {
   return (
     <Card className="border-primary/20 bg-gradient-to-br from-sky-50/50 to-violet-50/50 dark:from-sky-900/10 dark:to-violet-900/10">
       <CardHeader className="flex flex-row items-center justify-between">
@@ -55,7 +40,7 @@ export function AiMentorWidget({ firstName, ageGroup, finnMemoryLine, pulseStatu
             <Sparkles className="h-5 w-5" />
           </div>
           <div className="rounded-2xl rounded-tl-none bg-background border px-4 py-3 text-sm">
-            <p>{displayLine}</p>
+            <p>{finnChatLine}</p>
           </div>
         </div>
 

@@ -9,27 +9,15 @@ import { SavingsGoalWidget } from "@/components/dashboard/savings-goal-widget"
 import { AiMentorWidget } from "@/components/dashboard/ai-mentor-widget"
 import { TodayLearningWidget } from "@/components/dashboard/today-learning-widget"
 import { getTodayLearningState } from "@/src/lib/learning/todayState"
-import { getTomorrowPreview } from "@/src/lib/learning/tomorrowPreview"
-import { getDailyAdventureState } from "@/src/lib/learning/dailyAdventure"
 import { DailyHeroCard } from "@/components/dashboard/daily-hero-card"
-import { getHeroTitle } from "@/src/lib/hero/titles"
 import { AdventureMap } from "@/components/dashboard/adventure-map"
 import { DiscoveryWidget } from "@/components/dashboard/discovery-widget"
-import { PrideMomentCard, detectMilestone } from "@/components/dashboard/pride-moment-card"
+import { PrideMomentCard } from "@/components/dashboard/pride-moment-card"
 import { Season2Teaser } from "@/components/dashboard/season2-teaser"
 import { getLatestUnlockedFact, MONEY_FACTS } from "@/src/lib/discoveries/facts"
-import { getFinnMemoryLine } from "@/src/lib/hero/finnMemory"
-import { getRetentionState } from "@/src/lib/retention/retentionEngine"
-import { getAdaptivePacingState } from "@/src/lib/pacing/adaptivePacing"
-import {
-  FINN_ADAPTIVE_BORED, FINN_ADAPTIVE_FRUSTRATED,
-  FINN_ADAPTIVE_FATIGUED, FINN_ADAPTIVE_FLOW, pickRandom,
-} from "@/src/lib/hero/finn"
-import { getDailyReward } from "@/src/lib/rewards/variableReward"
-import { getInvisibleGrowth } from "@/src/lib/progression/progressionIllusion"
 import { ComebackMomentCard } from "@/components/dashboard/comeback-moment-card"
 import { SessionCompleteCard } from "@/components/dashboard/session-complete-card"
-import { getHabitLoopState } from "@/src/lib/habit/habitLoop"
+import { getDailyUXState } from "@/src/lib/product/getDailyUXState"
 
 export const metadata: Metadata = { title: "Dashboard" }
 
@@ -108,7 +96,6 @@ export default async function DashboardPage() {
     }),
   ])
 
-  // Next recommended lesson + quiz hrefs
   const nextLesson = await prisma.lesson.findFirst({
     where: {
       published: true,
@@ -123,10 +110,8 @@ export default async function DashboardPage() {
   const nextLessonHref = nextLesson ? `/courses/${nextLesson.courseId}/lessons/${nextLesson.id}` : "/courses"
   const nextQuizHref   = nextLesson?.quiz ? `/courses/${nextLesson.courseId}/lessons/${nextLesson.id}/quiz` : nextLessonHref
 
-  // Daily adventure state — pure computation, no DB
-  const adventure = getDailyAdventureState(todayState, nextLessonHref, nextQuizHref)
-
-  const tomorrowPreview = getTomorrowPreview({
+  // ── Single UX source of truth ─────────────────────────────────
+  const ux = getDailyUXState({
     childId: child.id,
     ageGroup: child.ageGroup,
     xp: child.xp,
@@ -134,88 +119,17 @@ export default async function DashboardPage() {
     streakDays: child.streakDays,
     childCreatedAt: child.createdAt,
     completedSkillIds,
-    currentDay: todayState.currentDay,
+    lessonsCompleted,
+    missionsCompleted,
+    badgesEarned: child.badges.length,
+    todayState,
+    nextLessonHref,
+    nextQuizHref,
   })
 
-  const heroTitle = getHeroTitle(child.level)
-
-  // Discoveries
+  // Discoveries (pure computation, no DB)
   const latestFact         = getLatestUnlockedFact(todayState.currentDay)
   const unlockedFactsCount = MONEY_FACTS.filter((f) => f.unlocksOnDay <= todayState.currentDay).length
-
-  // ── Retention Engine ─────────────────────────────────────────
-  const retentionState = getRetentionState({
-    daysSinceLastVisit: todayState.daysSinceLastVisit,
-    streakDays: child.streakDays,
-    dayProgressPercent: todayState.dayProgressPercent,
-    heroActionDone: adventure.heroActionDone,
-    currentDay: todayState.currentDay,
-    isFirstLoginToday: todayState.isFirstLoginToday,
-  })
-
-  // ── Variable Reward Engine ────────────────────────────────────
-  const dailyReward = getDailyReward(child.id, todayState.currentDay, child.streakDays)
-
-  // ── Progression Illusion ──────────────────────────────────────
-  const growthState = getInvisibleGrowth({
-    lessonsCompleted,
-    missionsCompleted,
-    streakDays: child.streakDays,
-    currentDay: todayState.currentDay,
-    level: child.level,
-    badgesEarned: child.badges.length,
-    dayProgressPercent: todayState.dayProgressPercent,
-  })
-
-  // ── Adaptive Pacing Engine ────────────────────────────────────
-  const pacingState = getAdaptivePacingState({
-    lessonsCompleted,
-    missionsCompleted,
-    streakDays: child.streakDays,
-    daysSinceLastVisit: todayState.daysSinceLastVisit,
-    currentDay: todayState.currentDay,
-    level: child.level,
-    dayProgressPercent: todayState.dayProgressPercent,
-    heroActionDone: adventure.heroActionDone,
-    isFirstLoginToday: todayState.isFirstLoginToday,
-  })
-
-  // Finn adaptive line — selected based on emotional tone, null if neutral
-  const ADAPTIVE_POOLS: Record<string, string[]> = {
-    bored:      FINN_ADAPTIVE_BORED,
-    frustrated: FINN_ADAPTIVE_FRUSTRATED,
-    fatigued:   FINN_ADAPTIVE_FATIGUED,
-    flow:       FINN_ADAPTIVE_FLOW,
-  }
-  const finnAdaptiveLine = pacingState.finnEmotionalTone !== "neutral"
-    ? pickRandom(ADAPTIVE_POOLS[pacingState.finnEmotionalTone]!)
-    : null
-
-  // ── Habit Loop State ──────────────────────────────────────────
-  const habitLoop = getHabitLoopState(todayState, adventure)
-
-  // Comeback — show when first login today AND was away
-  const showComeback = todayState.isFirstLoginToday && todayState.daysSinceLastVisit >= 1
-
-  // Finn Memory line
-  const finnMemoryLine = getFinnMemoryLine({
-    streakDays: child.streakDays,
-    missionsCompleted,
-    badgesEarned: child.badges.length,
-    currentDay: todayState.currentDay,
-    level: child.level,
-    lessonsDoneTotal: lessonsCompleted,
-  })
-
-  // Milestone detection
-  const prideMilestone = detectMilestone(child.level, todayState.currentDay, todayState.dayProgressPercent)
-  const isNamedMilestone = prideMilestone?.type === "level" || prideMilestone?.type === "day"
-  const isDay30Complete  = todayState.currentDay === 30 && todayState.dayProgressPercent === 100
-
-  // Next action for DailyHeroCard CTA
-  const nextActionHref = !todayState.lessonDoneToday ? nextLessonHref
-    : !todayState.quizDoneToday ? nextQuizHref
-    : "/missions"
 
   const recentLessons = child.lessonProgress.map((lp) => ({
     id: lp.lesson.id,
@@ -243,97 +157,102 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-5 animate-fade-in">
 
-      {/* ── 1. NARRATIVE START — Finn + story + ONE CTA ── */}
+      {/* 1. NARRATIVE START */}
       <DailyHeroCard
         state={todayState}
-        nextActionHref={nextActionHref}
-        heroTitle={heroTitle}
+        nextActionHref={ux.nextBestActionHref}
+        heroTitle={ux.heroTitle}
         streakDays={child.streakDays}
         firstName={child.firstName}
       />
 
-      {/* ── 2. COMEBACK MOMENT — emotional return, variable reward ── */}
-      {showComeback && (
+      {/* 2. COMEBACK MOMENT */}
+      {ux.showComeback && (
         <ComebackMomentCard
           firstName={child.firstName}
-          daysSinceLastVisit={todayState.daysSinceLastVisit}
+          daysSinceLastVisit={ux.comebackDaysSince}
           streakDays={child.streakDays}
-          dailyReward={dailyReward}
-          finnNudge={retentionState.finnNudgeMessage}
+          dailyReward={ux.comebackDailyReward}
+          finnNudge={ux.comebackFinnNudge}
         />
       )}
 
-      {/* ── 3. VARIABLE REWARD BANNER — rare events only ── */}
-      {!showComeback && dailyReward.isRare && (
+      {/* 3. VARIABLE REWARD BANNER — rare events only */}
+      {ux.showRareBanner && (
         <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-950/30 dark:to-amber-950/20 border border-yellow-300/40 dark:border-yellow-700/30 px-4 py-3">
           <span className="text-2xl shrink-0">🎰</span>
-          <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300">{dailyReward.rewardMessage}</p>
+          <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300">{ux.rareBannerMessage}</p>
         </div>
       )}
 
-      {/* ── 4. NAMED MILESTONE PRIDE — level 5/10, day 7/14/30 ── */}
-      {isNamedMilestone && prideMilestone && (
-        <PrideMomentCard milestone={prideMilestone} firstName={child.firstName} />
+      {/* 4. NAMED MILESTONE PRIDE */}
+      {ux.prideMilestone && (
+        <PrideMomentCard milestone={ux.prideMilestone} firstName={child.firstName} />
       )}
 
-      {/* ── MAIN LAYOUT GRID ── */}
+      {/* MAIN LAYOUT GRID */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
 
-        {/* ── Main column (2/3) ── */}
+        {/* Main column (2/3) */}
         <div className="lg:col-span-2 space-y-5">
 
-          {/* 3. TODAY — pacing-adaptive, focus lock when mid-loop */}
+          {/* TODAY */}
           <TodayLearningWidget
-            state={todayState}
-            adventure={adventure}
-            activeMissionId={todayState.activeMissionId}
-            loopStage={habitLoop.loopStage}
-            shouldShowFocusLock={habitLoop.shouldShowFocusLock}
-            finnFocusLine={habitLoop.finnFocusLine}
-            pacing={pacingState}
-            finnAdaptiveLine={finnAdaptiveLine}
+            finnLine={ux.finnLine}
+            uiMode={ux.uiMode}
+            sessionState={ux.sessionState}
+            visualDensity={ux.visualDensity}
+            pacingLabel={ux.pacingLabel}
+            primaryAction={ux.primaryAction}
+            secondaryActions={ux.secondaryActions}
+            dayProgressPercent={ux.dayProgressPercent}
+            currentDay={ux.currentDay}
+            xpDisplay={ux.xpDisplay}
+            xpLabel={ux.xpLabel}
+            activeMissionId={ux.activeMissionId}
+            missionRealLifeTask={ux.missionRealLifeTask}
+            lessonHook={ux.lessonHook}
           />
 
-          {/* 4. CLEAN CLOSURE — single session end screen when day_completed */}
-          {habitLoop.sessionEndDetected ? (
-            isDay30Complete ? (
+          {/* SESSION END — single card */}
+          {ux.sessionEndDetected && (
+            ux.isDay30Complete ? (
               <Season2Teaser />
             ) : (
               <SessionCompleteCard
                 firstName={child.firstName}
-                currentDay={todayState.currentDay}
-                xpReward={todayState.today.xpReward}
-                endMessage={habitLoop.endMessage}
-                tomorrowPreview={tomorrowPreview}
+                currentDay={ux.currentDay}
+                xpReward={ux.xpDisplay}
+                endMessage={ux.endMessage}
+                tomorrowPreview={ux.tomorrowPreview}
               />
             )
-          ) : null}
+          )}
 
           <RecentLessons lessons={recentLessons} />
           <CurrentMissions missions={activeMissions} />
         </div>
 
-        {/* ── Sidebar (1/3) ── */}
+        {/* Sidebar (1/3) */}
         <div className="space-y-5">
 
-          {/* Compact identity + XP bar */}
           <WelcomeCard
             name={child.firstName}
             xp={child.xp}
             level={child.level}
             streakDays={child.streakDays}
             avatarUrl={child.avatarUrl}
-            heroTitle={heroTitle}
+            heroTitle={ux.heroTitle}
           />
 
-          {/* Journey map — where am I in the 30-day adventure */}
-          <AdventureMap
-            currentDay={todayState.currentDay}
-            dayProgressPercent={todayState.dayProgressPercent}
-          />
+          {ux.showMap && (
+            <AdventureMap
+              currentDay={ux.currentDay}
+              dayProgressPercent={ux.dayProgressPercent}
+            />
+          )}
 
-          {/* Discoveries collection */}
-          {latestFact && (
+          {ux.showDiscoveries && latestFact && (
             <DiscoveryWidget
               latestFact={latestFact}
               totalUnlocked={unlockedFactsCount}
@@ -349,14 +268,10 @@ export default async function DashboardPage() {
             currentAmount: Number(g.currentAmount),
           }))} />
 
-          {/* Finn — with memory line, growth comment, pulse status */}
           <AiMentorWidget
-            firstName={child.firstName}
-            ageGroup={child.ageGroup}
-            finnMemoryLine={finnMemoryLine}
-            pulseStatus={retentionState.pulseStatus}
-            growthComment={growthState.finnCommentOnGrowth}
-            topStrength={growthState.topStrengthName}
+            finnChatLine={ux.finnChatLine}
+            pulseStatus={ux.pulseStatus}
+            topStrength={ux.growthTopStrength}
           />
         </div>
       </div>

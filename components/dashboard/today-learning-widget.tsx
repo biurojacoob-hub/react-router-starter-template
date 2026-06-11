@@ -3,22 +3,26 @@ import { BookOpen, Brain, Target, CheckCircle2, Lock, Zap, ArrowRight } from "lu
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import type { TodayLearningState } from "@/src/lib/learning/todayState"
-import type { DailyAdventureState, AdventureAction } from "@/src/lib/learning/dailyAdventure"
-import type { LoopStage } from "@/src/lib/habit/habitLoop"
-import type { AdaptivePacingState } from "@/src/lib/pacing/adaptivePacing"
+import type { AdventureAction } from "@/src/lib/learning/dailyAdventure"
+import type { UiMode, SessionState, VisualDensity } from "@/src/lib/product/getDailyUXState"
 import { MissionButton } from "@/components/dashboard/mission-button"
 import { FINN } from "@/src/lib/hero/finn"
 
 interface TodayLearningWidgetProps {
-  state: TodayLearningState
-  adventure: DailyAdventureState
+  finnLine: string
+  uiMode: UiMode
+  sessionState: SessionState
+  visualDensity: VisualDensity
+  pacingLabel: string
+  primaryAction: AdventureAction
+  secondaryActions: AdventureAction[]
+  dayProgressPercent: number
+  currentDay: number
+  xpDisplay: number
+  xpLabel: string | null
   activeMissionId: string | null
-  loopStage: LoopStage
-  shouldShowFocusLock: boolean
-  finnFocusLine: string
-  pacing: AdaptivePacingState
-  finnAdaptiveLine: string | null
+  missionRealLifeTask: string
+  lessonHook: string | null
 }
 
 const ACTION_META: Record<string, { icon: React.ReactNode; label: string; doneLabel: string; lockedLabel: string }> = {
@@ -39,18 +43,17 @@ const PACING_BADGE: Record<string, string> = {
   HIGH:   "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300",
 }
 
-export function TodayLearningWidget({ state, adventure, activeMissionId, loopStage, shouldShowFocusLock, finnFocusLine, pacing, finnAdaptiveLine }: TodayLearningWidgetProps) {
-  const { currentDay, dayProgressPercent, today } = state
-  const { heroAction, secondaryActions, dayTheme, finnOpening, finnHeroComplete, finnDayComplete, allDone, heroActionDone } = adventure
+export function TodayLearningWidget({
+  finnLine, uiMode, sessionState, visualDensity, pacingLabel,
+  primaryAction, secondaryActions,
+  dayProgressPercent, currentDay, xpDisplay, xpLabel,
+  activeMissionId, missionRealLifeTask, lessonHook,
+}: TodayLearningWidgetProps) {
+  const shouldShowFocusLock = uiMode === "FOCUS"
+  const allDone = sessionState === "day_done"
+  const heroActionDone = sessionState === "hero_done" || sessionState === "day_done"
 
-  // Focus lock: fade secondary actions when mid-loop to eliminate decision chaos
   const secondaryOpacity = shouldShowFocusLock ? "opacity-30 pointer-events-none select-none" : ""
-
-  // Adaptive secondary chips — LOW shows none, NORMAL shows 1, HIGH shows 2
-  const visibleSecondary =
-    pacing.dailyLoad === "LOW"  ? [] :
-    pacing.dailyLoad === "NORMAL" ? secondaryActions.slice(0, 1) :
-    secondaryActions  // HIGH: all
 
   return (
     <Card className={`border-0 overflow-hidden transition-all duration-300 ${
@@ -71,15 +74,15 @@ export function TodayLearningWidget({ state, adventure, activeMissionId, loopSta
           </CardTitle>
           <div className="flex items-center gap-2 flex-wrap justify-end">
             <Badge variant="purple" className="text-[10px]">Dzień {currentDay}/30</Badge>
-            <span className={`text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-full ${PACING_BADGE[pacing.dailyLoad]}`}>
-              {pacing.pacingLabel}
+            <span className={`text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-full ${PACING_BADGE[visualDensity]}`}>
+              {pacingLabel}
             </span>
           </div>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* FINN VOICE — changes with loop stage */}
+        {/* FINN VOICE */}
         <div className={`flex items-start gap-2 rounded-xl px-3 py-2.5 ${
           shouldShowFocusLock
             ? "bg-primary/10 border border-primary/20"
@@ -93,39 +96,30 @@ export function TodayLearningWidget({ state, adventure, activeMissionId, loopSta
               ? "text-primary font-semibold"
               : allDone || heroActionDone
               ? "text-emerald-700 dark:text-emerald-300 font-medium"
-              : finnAdaptiveLine
-              ? "text-foreground font-medium"
               : "text-muted-foreground italic"
           }`}>
-            {shouldShowFocusLock
-              ? `"${finnFocusLine}"`
-              : allDone
-              ? finnDayComplete
-              : heroActionDone
-              ? finnHeroComplete
-              : finnAdaptiveLine
-              ? `"${finnAdaptiveLine}"`
-              : `"${finnOpening}"`}
+            &ldquo;{finnLine}&rdquo;
           </p>
         </div>
 
-        {/* HERO ACTION — one primary action */}
+        {/* HERO ACTION */}
         {!allDone && (
           <HeroActionBlock
-            action={heroAction}
+            action={primaryAction}
             activeMissionId={activeMissionId}
-            today={today}
+            missionRealLifeTask={missionRealLifeTask}
+            lessonHook={lessonHook}
           />
         )}
 
-        {/* SECONDARY ACTIONS — count driven by pacing.dailyLoad, faded in focus lock */}
-        {(allDone ? secondaryActions : visibleSecondary).length > 0 && (
+        {/* SECONDARY ACTIONS */}
+        {(allDone ? secondaryActions : secondaryActions).length > 0 && (
           <div className={`space-y-1.5 transition-all duration-300 ${secondaryOpacity}`}>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-0.5">
               {allDone ? "Wszystkie ukończone" : shouldShowFocusLock ? "Później" : "Pozostałe"}
             </p>
             <div className="grid grid-cols-2 gap-2">
-              {(allDone ? secondaryActions : visibleSecondary).map((action) => (
+              {secondaryActions.map((action) => (
                 <SecondaryChip key={action.type} action={action} />
               ))}
             </div>
@@ -141,19 +135,16 @@ export function TodayLearningWidget({ state, adventure, activeMissionId, loopSta
           <Progress value={dayProgressPercent} className="h-2" indicatorClassName="bg-gradient-to-r from-primary to-blue-400" />
         </div>
 
-        {/* XP preview + LOW day encouragement */}
+        {/* XP preview */}
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Zap className="h-3 w-3 text-yellow-500" />
           <span>
             Do zdobycia dziś:{" "}
-            <strong className="text-foreground">
-              +{Math.round(today.xpReward * pacing.difficultyModifier)} XP
-            </strong>
-            {pacing.dailyLoad === "LOW" && (
-              <span className="ml-1.5 text-sky-500 font-normal">· Lekki tryb</span>
-            )}
-            {pacing.dailyLoad === "HIGH" && (
-              <span className="ml-1.5 text-violet-500 font-normal">· Deep Focus bonus</span>
+            <strong className="text-foreground">+{xpDisplay} XP</strong>
+            {xpLabel && (
+              <span className={`ml-1.5 font-normal ${visualDensity === "LOW" ? "text-sky-500" : "text-violet-500"}`}>
+                · {xpLabel}
+              </span>
             )}
           </span>
         </div>
@@ -167,10 +158,11 @@ export function TodayLearningWidget({ state, adventure, activeMissionId, loopSta
 interface HeroActionBlockProps {
   action: AdventureAction
   activeMissionId: string | null
-  today: TodayLearningState["today"]
+  missionRealLifeTask: string
+  lessonHook: string | null
 }
 
-function HeroActionBlock({ action, activeMissionId, today }: HeroActionBlockProps) {
+function HeroActionBlock({ action, activeMissionId, missionRealLifeTask, lessonHook }: HeroActionBlockProps) {
   const meta = ACTION_META[action.type]!
   const cta = ACTION_CTA[action.type]!
 
@@ -204,7 +196,6 @@ function HeroActionBlock({ action, activeMissionId, today }: HeroActionBlockProp
     )
   }
 
-  // Mission hero — inline expand with MissionButton
   if (action.type === "mission") {
     return (
       <div className="rounded-2xl bg-gradient-to-br from-violet-500/10 to-purple-500/5 border border-violet-300/40 dark:border-violet-700/30 p-4 space-y-3">
@@ -218,17 +209,16 @@ function HeroActionBlock({ action, activeMissionId, today }: HeroActionBlockProp
           </div>
           <span className="text-[10px] text-muted-foreground shrink-0">{action.estimatedMin} min</span>
         </div>
-        <p className="text-xs text-muted-foreground leading-relaxed">{today.mission.realLifeTask}</p>
+        <p className="text-xs text-muted-foreground leading-relaxed">{missionRealLifeTask}</p>
         <MissionButton
-          title={today.mission.title}
-          description={today.mission.description}
+          title={action.title}
+          description={missionRealLifeTask}
           isActive={activeMissionId !== null}
         />
       </div>
     )
   }
 
-  // Lesson or Quiz hero — big link button
   return (
     <Link href={action.href} className="block">
       <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/15 to-blue-500/10 border border-primary/30 p-4 transition-all hover:from-primary/20 hover:border-primary/50 hover:shadow-md cursor-pointer">
@@ -243,7 +233,7 @@ function HeroActionBlock({ action, activeMissionId, today }: HeroActionBlockProp
           <span className="text-[10px] text-muted-foreground shrink-0">{action.estimatedMin} min</span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">{today.lesson.hook ? `"${today.lesson.hook.slice(0, 60)}…"` : ""}</span>
+          <span className="text-xs text-muted-foreground">{lessonHook ? `"${lessonHook.slice(0, 60)}…"` : ""}</span>
           <span className="flex items-center gap-1 text-xs font-bold text-primary group-hover:translate-x-0.5 transition-transform">
             {cta} <ArrowRight className="h-3.5 w-3.5" />
           </span>
