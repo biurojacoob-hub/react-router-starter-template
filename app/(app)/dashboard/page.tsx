@@ -65,6 +65,12 @@ export default async function DashboardPage() {
         where: { status: "COMPLETED" },
         select: { skillId: true },
       },
+      savingsGoals: {
+        where: { deletedAt: null, achieved: false },
+        select: { id: true, title: true, emoji: true, targetAmount: true, currentAmount: true },
+        orderBy: { createdAt: "asc" },
+        take: 3,
+      },
     },
   })
 
@@ -90,6 +96,25 @@ export default async function DashboardPage() {
         completedSkillIds,
       }),
     ])
+
+  // Find next recommended lesson + quiz href
+  const nextLesson = await prisma.lesson.findFirst({
+    where: {
+      published: true,
+      deletedAt: null,
+      course: { ageGroup: child.ageGroup, deletedAt: null },
+      progress: { none: { childId: child.id, completed: true } },
+    },
+    select: { id: true, courseId: true, quiz: { select: { id: true } } },
+    orderBy: [{ course: { orderIndex: "asc" } }, { orderIndex: "asc" }],
+  })
+
+  const nextLessonHref = nextLesson
+    ? `/courses/${nextLesson.courseId}/lessons/${nextLesson.id}`
+    : "/courses"
+  const nextQuizHref = nextLesson?.quiz
+    ? `/courses/${nextLesson.courseId}/lessons/${nextLesson.id}/quiz`
+    : nextLessonHref
 
   const tomorrowPreview = getTomorrowPreview({
     childId: child.id,
@@ -168,7 +193,7 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
           {/* TODAY — primary retention widget */}
-          <TodayLearningWidget state={todayState} />
+          <TodayLearningWidget state={todayState} nextLessonHref={nextLessonHref} nextQuizHref={nextQuizHref} />
           {/* TOMORROW HOOK — shown when all today's activities are done */}
           {todayState.dayProgressPercent === 100 && tomorrowPreview && (
             <TomorrowHookCard preview={tomorrowPreview} />
@@ -177,8 +202,14 @@ export default async function DashboardPage() {
           <CurrentMissions missions={activeMissions} />
         </div>
         <div className="space-y-6">
-          <SavingsGoalWidget />
-          <AiMentorWidget />
+          <SavingsGoalWidget goals={child.savingsGoals.map((g) => ({
+            id: g.id,
+            title: g.title,
+            emoji: g.emoji,
+            targetAmount: Number(g.targetAmount),
+            currentAmount: Number(g.currentAmount),
+          }))} />
+          <AiMentorWidget firstName={child.firstName} ageGroup={child.ageGroup} />
         </div>
       </div>
     </div>

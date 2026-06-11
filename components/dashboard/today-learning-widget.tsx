@@ -8,6 +8,8 @@ import { MissionButton } from "@/components/dashboard/mission-button"
 
 interface TodayLearningWidgetProps {
   state: TodayLearningState
+  nextLessonHref: string
+  nextQuizHref: string
 }
 
 const PHASE_LABELS: Record<string, string> = {
@@ -17,7 +19,7 @@ const PHASE_LABELS: Record<string, string> = {
   INTEGRATION: "Integracja",
 }
 
-export function TodayLearningWidget({ state }: TodayLearningWidgetProps) {
+export function TodayLearningWidget({ state, nextLessonHref, nextQuizHref }: TodayLearningWidgetProps) {
   const { currentDay, today, lessonDoneToday, quizDoneToday, missionDoneToday, dayProgressPercent } = state
   const allDone = lessonDoneToday && quizDoneToday && missionDoneToday
 
@@ -64,7 +66,7 @@ export function TodayLearningWidget({ state }: TodayLearningWidgetProps) {
           label="Lekcja dnia"
           title={today.lesson.title}
           done={lessonDoneToday}
-          href="/courses"
+          href={nextLessonHref}
           estimatedMin={today.lesson.estimatedMinutes}
           locked={false}
         />
@@ -75,7 +77,7 @@ export function TodayLearningWidget({ state }: TodayLearningWidgetProps) {
           label="Quiz dnia"
           title={today.quiz.title}
           done={quizDoneToday}
-          href="/courses"
+          href={nextQuizHref}
           estimatedMin={today.quiz.estimatedMinutes}
           locked={!lessonDoneToday}
         />
