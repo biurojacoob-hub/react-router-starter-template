@@ -4,6 +4,31 @@ export const FINN = {
   title: "Twój finansowy przewodnik",
 }
 
+// Finn as EMOTIONAL REGULATOR — tone shifts with child's pacing state
+export const FINN_ADAPTIVE_BORED = [
+  "Dziś idziemy szybciej. Gotowy na wyzwanie?",
+  "Czuję że masz dziś więcej energii. Pokażmy to!",
+  "Finn wyczuł — możesz więcej. Zaczynamy.",
+]
+
+export const FINN_ADAPTIVE_FRUSTRATED = [
+  "Jeden mały krok. Tylko tyle wystarczy dziś.",
+  "Nie musisz robić wszystkiego. Jeden krok to krok.",
+  "Finn jest obok. Bez pośpiechu — jeden krok naraz.",
+]
+
+export const FINN_ADAPTIVE_FATIGUED = [
+  "Możemy dziś zwolnić. Jeden krok wystarczy.",
+  "Finn nie wymaga dużo. Jedno odkrycie to wystarczy.",
+  "Spokojnie. Mały krok to nadal krok naprzód.",
+]
+
+export const FINN_ADAPTIVE_FLOW = [
+  "Jesteś w strefie. Momentum jest teraz — zostań.",
+  "Czujesz to? To właśnie jest flow. Kontynuuj.",
+  "Idealny rytm. Nie zatrzymuj się teraz.",
+]
+
 // Finn as SESSION GUIDE — reduces decision chaos, keeps child on one path
 export const FINN_FOCUS_GUIDE = [
   "Zostań tutaj. Jedna rzecz wystarczy.",

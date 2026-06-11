@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress"
 import type { TodayLearningState } from "@/src/lib/learning/todayState"
 import type { DailyAdventureState, AdventureAction } from "@/src/lib/learning/dailyAdventure"
 import type { LoopStage } from "@/src/lib/habit/habitLoop"
+import type { AdaptivePacingState } from "@/src/lib/pacing/adaptivePacing"
 import { MissionButton } from "@/components/dashboard/mission-button"
 import { FINN } from "@/src/lib/hero/finn"
 
@@ -16,6 +17,8 @@ interface TodayLearningWidgetProps {
   loopStage: LoopStage
   shouldShowFocusLock: boolean
   finnFocusLine: string
+  pacing: AdaptivePacingState
+  finnAdaptiveLine: string | null
 }
 
 const ACTION_META: Record<string, { icon: React.ReactNode; label: string; doneLabel: string; lockedLabel: string }> = {
@@ -30,12 +33,24 @@ const ACTION_CTA: Record<string, string> = {
   mission: "Ruszaj na misję",
 }
 
-export function TodayLearningWidget({ state, adventure, activeMissionId, loopStage, shouldShowFocusLock, finnFocusLine }: TodayLearningWidgetProps) {
+const PACING_BADGE: Record<string, string> = {
+  LOW:    "bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300",
+  NORMAL: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300",
+  HIGH:   "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300",
+}
+
+export function TodayLearningWidget({ state, adventure, activeMissionId, loopStage, shouldShowFocusLock, finnFocusLine, pacing, finnAdaptiveLine }: TodayLearningWidgetProps) {
   const { currentDay, dayProgressPercent, today } = state
   const { heroAction, secondaryActions, dayTheme, finnOpening, finnHeroComplete, finnDayComplete, allDone, heroActionDone } = adventure
 
   // Focus lock: fade secondary actions when mid-loop to eliminate decision chaos
   const secondaryOpacity = shouldShowFocusLock ? "opacity-30 pointer-events-none select-none" : ""
+
+  // Adaptive secondary chips — LOW shows none, NORMAL shows 1, HIGH shows 2
+  const visibleSecondary =
+    pacing.dailyLoad === "LOW"  ? [] :
+    pacing.dailyLoad === "NORMAL" ? secondaryActions.slice(0, 1) :
+    secondaryActions  // HIGH: all
 
   return (
     <Card className={`border-0 overflow-hidden transition-all duration-300 ${
@@ -56,7 +71,9 @@ export function TodayLearningWidget({ state, adventure, activeMissionId, loopSta
           </CardTitle>
           <div className="flex items-center gap-2 flex-wrap justify-end">
             <Badge variant="purple" className="text-[10px]">Dzień {currentDay}/30</Badge>
-            <Badge variant="secondary" className="text-[10px]">{dayTheme}</Badge>
+            <span className={`text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-full ${PACING_BADGE[pacing.dailyLoad]}`}>
+              {pacing.pacingLabel}
+            </span>
           </div>
         </div>
       </CardHeader>
@@ -76,6 +93,8 @@ export function TodayLearningWidget({ state, adventure, activeMissionId, loopSta
               ? "text-primary font-semibold"
               : allDone || heroActionDone
               ? "text-emerald-700 dark:text-emerald-300 font-medium"
+              : finnAdaptiveLine
+              ? "text-foreground font-medium"
               : "text-muted-foreground italic"
           }`}>
             {shouldShowFocusLock
@@ -84,6 +103,8 @@ export function TodayLearningWidget({ state, adventure, activeMissionId, loopSta
               ? finnDayComplete
               : heroActionDone
               ? finnHeroComplete
+              : finnAdaptiveLine
+              ? `"${finnAdaptiveLine}"`
               : `"${finnOpening}"`}
           </p>
         </div>
@@ -97,14 +118,14 @@ export function TodayLearningWidget({ state, adventure, activeMissionId, loopSta
           />
         )}
 
-        {/* SECONDARY ACTIONS — faded in focus lock, hidden chips when day done */}
-        {secondaryActions.length > 0 && (
+        {/* SECONDARY ACTIONS — count driven by pacing.dailyLoad, faded in focus lock */}
+        {(allDone ? secondaryActions : visibleSecondary).length > 0 && (
           <div className={`space-y-1.5 transition-all duration-300 ${secondaryOpacity}`}>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-0.5">
               {allDone ? "Wszystkie ukończone" : shouldShowFocusLock ? "Później" : "Pozostałe"}
             </p>
             <div className="grid grid-cols-2 gap-2">
-              {secondaryActions.map((action) => (
+              {(allDone ? secondaryActions : visibleSecondary).map((action) => (
                 <SecondaryChip key={action.type} action={action} />
               ))}
             </div>
@@ -120,10 +141,21 @@ export function TodayLearningWidget({ state, adventure, activeMissionId, loopSta
           <Progress value={dayProgressPercent} className="h-2" indicatorClassName="bg-gradient-to-r from-primary to-blue-400" />
         </div>
 
-        {/* XP preview */}
+        {/* XP preview + LOW day encouragement */}
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Zap className="h-3 w-3 text-yellow-500" />
-          <span>Do zdobycia dziś: <strong className="text-foreground">+{today.xpReward} XP</strong></span>
+          <span>
+            Do zdobycia dziś:{" "}
+            <strong className="text-foreground">
+              +{Math.round(today.xpReward * pacing.difficultyModifier)} XP
+            </strong>
+            {pacing.dailyLoad === "LOW" && (
+              <span className="ml-1.5 text-sky-500 font-normal">· Lekki tryb</span>
+            )}
+            {pacing.dailyLoad === "HIGH" && (
+              <span className="ml-1.5 text-violet-500 font-normal">· Deep Focus bonus</span>
+            )}
+          </span>
         </div>
       </CardContent>
     </Card>

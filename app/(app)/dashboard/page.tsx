@@ -20,6 +20,11 @@ import { Season2Teaser } from "@/components/dashboard/season2-teaser"
 import { getLatestUnlockedFact, MONEY_FACTS } from "@/src/lib/discoveries/facts"
 import { getFinnMemoryLine } from "@/src/lib/hero/finnMemory"
 import { getRetentionState } from "@/src/lib/retention/retentionEngine"
+import { getAdaptivePacingState } from "@/src/lib/pacing/adaptivePacing"
+import {
+  FINN_ADAPTIVE_BORED, FINN_ADAPTIVE_FRUSTRATED,
+  FINN_ADAPTIVE_FATIGUED, FINN_ADAPTIVE_FLOW, pickRandom,
+} from "@/src/lib/hero/finn"
 import { getDailyReward } from "@/src/lib/rewards/variableReward"
 import { getInvisibleGrowth } from "@/src/lib/progression/progressionIllusion"
 import { ComebackMomentCard } from "@/components/dashboard/comeback-moment-card"
@@ -162,6 +167,30 @@ export default async function DashboardPage() {
     dayProgressPercent: todayState.dayProgressPercent,
   })
 
+  // ── Adaptive Pacing Engine ────────────────────────────────────
+  const pacingState = getAdaptivePacingState({
+    lessonsCompleted,
+    missionsCompleted,
+    streakDays: child.streakDays,
+    daysSinceLastVisit: todayState.daysSinceLastVisit,
+    currentDay: todayState.currentDay,
+    level: child.level,
+    dayProgressPercent: todayState.dayProgressPercent,
+    heroActionDone: adventure.heroActionDone,
+    isFirstLoginToday: todayState.isFirstLoginToday,
+  })
+
+  // Finn adaptive line — selected based on emotional tone, null if neutral
+  const ADAPTIVE_POOLS: Record<string, string[]> = {
+    bored:      FINN_ADAPTIVE_BORED,
+    frustrated: FINN_ADAPTIVE_FRUSTRATED,
+    fatigued:   FINN_ADAPTIVE_FATIGUED,
+    flow:       FINN_ADAPTIVE_FLOW,
+  }
+  const finnAdaptiveLine = pacingState.finnEmotionalTone !== "neutral"
+    ? pickRandom(ADAPTIVE_POOLS[pacingState.finnEmotionalTone]!)
+    : null
+
   // ── Habit Loop State ──────────────────────────────────────────
   const habitLoop = getHabitLoopState(todayState, adventure)
 
@@ -253,7 +282,7 @@ export default async function DashboardPage() {
         {/* ── Main column (2/3) ── */}
         <div className="lg:col-span-2 space-y-5">
 
-          {/* 3. TODAY — focus lock active when mid-loop (hero_started) */}
+          {/* 3. TODAY — pacing-adaptive, focus lock when mid-loop */}
           <TodayLearningWidget
             state={todayState}
             adventure={adventure}
@@ -261,6 +290,8 @@ export default async function DashboardPage() {
             loopStage={habitLoop.loopStage}
             shouldShowFocusLock={habitLoop.shouldShowFocusLock}
             finnFocusLine={habitLoop.finnFocusLine}
+            pacing={pacingState}
+            finnAdaptiveLine={finnAdaptiveLine}
           />
 
           {/* 4. CLEAN CLOSURE — single session end screen when day_completed */}
