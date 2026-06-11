@@ -1,11 +1,11 @@
 import Link from "next/link"
-import { BookOpen, Brain, Target, CheckCircle2, Lock, ChevronRight, Zap, ArrowRight } from "lucide-react"
+import { BookOpen, Brain, Target, CheckCircle2, Lock, Zap, ArrowRight } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Button } from "@/components/ui/button"
 import type { TodayLearningState } from "@/src/lib/learning/todayState"
 import type { DailyAdventureState, AdventureAction } from "@/src/lib/learning/dailyAdventure"
+import type { LoopStage } from "@/src/lib/habit/habitLoop"
 import { MissionButton } from "@/components/dashboard/mission-button"
 import { FINN } from "@/src/lib/hero/finn"
 
@@ -13,6 +13,9 @@ interface TodayLearningWidgetProps {
   state: TodayLearningState
   adventure: DailyAdventureState
   activeMissionId: string | null
+  loopStage: LoopStage
+  shouldShowFocusLock: boolean
+  finnFocusLine: string
 }
 
 const ACTION_META: Record<string, { icon: React.ReactNode; label: string; doneLabel: string; lockedLabel: string }> = {
@@ -27,17 +30,29 @@ const ACTION_CTA: Record<string, string> = {
   mission: "Ruszaj na misję",
 }
 
-export function TodayLearningWidget({ state, adventure, activeMissionId }: TodayLearningWidgetProps) {
+export function TodayLearningWidget({ state, adventure, activeMissionId, loopStage, shouldShowFocusLock, finnFocusLine }: TodayLearningWidgetProps) {
   const { currentDay, dayProgressPercent, today } = state
-  const { heroAction, secondaryActions, dayTheme, emotionTone, finnOpening, finnHeroComplete, finnDayComplete, allDone, heroActionDone } = adventure
+  const { heroAction, secondaryActions, dayTheme, finnOpening, finnHeroComplete, finnDayComplete, allDone, heroActionDone } = adventure
+
+  // Focus lock: fade secondary actions when mid-loop to eliminate decision chaos
+  const secondaryOpacity = shouldShowFocusLock ? "opacity-30 pointer-events-none select-none" : ""
 
   return (
-    <Card className="border-0 ring-1 ring-primary/20 bg-gradient-to-br from-primary/5 to-blue-50/50 dark:from-primary/10 dark:to-blue-950/30 overflow-hidden">
+    <Card className={`border-0 overflow-hidden transition-all duration-300 ${
+      shouldShowFocusLock
+        ? "ring-2 ring-primary/40 shadow-lg shadow-primary/10"
+        : "ring-1 ring-primary/20"
+    } bg-gradient-to-br from-primary/5 to-blue-50/50 dark:from-primary/10 dark:to-blue-950/30`}>
       <CardHeader className="pb-3 pt-4">
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
             <span className="text-base">{FINN.emoji}</span>
             Przygoda dnia
+            {shouldShowFocusLock && (
+              <Badge variant="outline" className="text-[9px] h-4 border-primary/40 text-primary px-1.5">
+                FOCUS
+              </Badge>
+            )}
           </CardTitle>
           <div className="flex items-center gap-2 flex-wrap justify-end">
             <Badge variant="purple" className="text-[10px]">Dzień {currentDay}/30</Badge>
@@ -47,34 +62,31 @@ export function TodayLearningWidget({ state, adventure, activeMissionId }: Today
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Finn opening — only before day starts */}
-        {!heroActionDone && !allDone && (
-          <div className="flex items-start gap-2 rounded-xl bg-background/70 border border-border/50 px-3 py-2.5">
-            <span className="text-base leading-none shrink-0 mt-0.5">{FINN.emoji}</span>
-            <p className="text-xs text-muted-foreground leading-relaxed italic">
-              &ldquo;{finnOpening}&rdquo;
-            </p>
-          </div>
-        )}
-
-        {/* Hero action after complete */}
-        {heroActionDone && !allDone && (
-          <div className="flex items-start gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200/50 dark:border-emerald-800/30 px-3 py-2.5">
-            <span className="text-base leading-none shrink-0 mt-0.5">{FINN.emoji}</span>
-            <p className="text-xs text-emerald-700 dark:text-emerald-300 leading-relaxed font-medium">
-              {finnHeroComplete}
-            </p>
-          </div>
-        )}
-
-        {allDone && (
-          <div className="flex items-start gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200/50 dark:border-emerald-800/30 px-3 py-2.5">
-            <span className="text-base leading-none shrink-0 mt-0.5">{FINN.emoji}</span>
-            <p className="text-xs text-emerald-700 dark:text-emerald-300 leading-relaxed font-medium">
-              {finnDayComplete}
-            </p>
-          </div>
-        )}
+        {/* FINN VOICE — changes with loop stage */}
+        <div className={`flex items-start gap-2 rounded-xl px-3 py-2.5 ${
+          shouldShowFocusLock
+            ? "bg-primary/10 border border-primary/20"
+            : allDone || heroActionDone
+            ? "bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200/50 dark:border-emerald-800/30"
+            : "bg-background/70 border border-border/50"
+        }`}>
+          <span className="text-base leading-none shrink-0 mt-0.5">{FINN.emoji}</span>
+          <p className={`text-xs leading-relaxed ${
+            shouldShowFocusLock
+              ? "text-primary font-semibold"
+              : allDone || heroActionDone
+              ? "text-emerald-700 dark:text-emerald-300 font-medium"
+              : "text-muted-foreground italic"
+          }`}>
+            {shouldShowFocusLock
+              ? `"${finnFocusLine}"`
+              : allDone
+              ? finnDayComplete
+              : heroActionDone
+              ? finnHeroComplete
+              : `"${finnOpening}"`}
+          </p>
+        </div>
 
         {/* HERO ACTION — one primary action */}
         {!allDone && (
@@ -85,11 +97,11 @@ export function TodayLearningWidget({ state, adventure, activeMissionId }: Today
           />
         )}
 
-        {/* SECONDARY ACTIONS — small chips */}
+        {/* SECONDARY ACTIONS — faded in focus lock, hidden chips when day done */}
         {secondaryActions.length > 0 && (
-          <div className="space-y-1.5">
+          <div className={`space-y-1.5 transition-all duration-300 ${secondaryOpacity}`}>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-0.5">
-              {allDone ? "Wszystkie ukończone" : "Pozostałe"}
+              {allDone ? "Wszystkie ukończone" : shouldShowFocusLock ? "Później" : "Pozostałe"}
             </p>
             <div className="grid grid-cols-2 gap-2">
               {secondaryActions.map((action) => (

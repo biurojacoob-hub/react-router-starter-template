@@ -4,6 +4,15 @@ export const FINN = {
   title: "Twój finansowy przewodnik",
 }
 
+// Finn as SESSION GUIDE — reduces decision chaos, keeps child on one path
+export const FINN_FOCUS_GUIDE = [
+  "Zostań tutaj. Jedna rzecz wystarczy.",
+  "Nie szukaj innych opcji. To jest Twoja droga na dziś.",
+  "Dokończ to. Reszta poczeka.",
+  "Jedno zadanie. Jeden krok. Jeden bohater. Ty.",
+  "Finn mówi: skup się. Wszystko inne może poczekać.",
+]
+
 // Finn reacts to INACTIVITY — not just actions
 export const FINN_RETENTION_NUDGE = [
   "Nie było Cię wczoraj. Ale Finn nadal tu jest. 🦉",

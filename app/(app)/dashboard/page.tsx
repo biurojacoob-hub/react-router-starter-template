@@ -8,7 +8,6 @@ import { CurrentMissions } from "@/components/dashboard/current-missions"
 import { SavingsGoalWidget } from "@/components/dashboard/savings-goal-widget"
 import { AiMentorWidget } from "@/components/dashboard/ai-mentor-widget"
 import { TodayLearningWidget } from "@/components/dashboard/today-learning-widget"
-import { TomorrowHookCard } from "@/components/dashboard/tomorrow-hook-card"
 import { getTodayLearningState } from "@/src/lib/learning/todayState"
 import { getTomorrowPreview } from "@/src/lib/learning/tomorrowPreview"
 import { getDailyAdventureState } from "@/src/lib/learning/dailyAdventure"
@@ -16,7 +15,7 @@ import { DailyHeroCard } from "@/components/dashboard/daily-hero-card"
 import { getHeroTitle } from "@/src/lib/hero/titles"
 import { AdventureMap } from "@/components/dashboard/adventure-map"
 import { DiscoveryWidget } from "@/components/dashboard/discovery-widget"
-import { PrideMomentCard, DailyCompletionCard, detectMilestone } from "@/components/dashboard/pride-moment-card"
+import { PrideMomentCard, detectMilestone } from "@/components/dashboard/pride-moment-card"
 import { Season2Teaser } from "@/components/dashboard/season2-teaser"
 import { getLatestUnlockedFact, MONEY_FACTS } from "@/src/lib/discoveries/facts"
 import { getFinnMemoryLine } from "@/src/lib/hero/finnMemory"
@@ -24,6 +23,8 @@ import { getRetentionState } from "@/src/lib/retention/retentionEngine"
 import { getDailyReward } from "@/src/lib/rewards/variableReward"
 import { getInvisibleGrowth } from "@/src/lib/progression/progressionIllusion"
 import { ComebackMomentCard } from "@/components/dashboard/comeback-moment-card"
+import { SessionCompleteCard } from "@/components/dashboard/session-complete-card"
+import { getHabitLoopState } from "@/src/lib/habit/habitLoop"
 
 export const metadata: Metadata = { title: "Dashboard" }
 
@@ -161,6 +162,9 @@ export default async function DashboardPage() {
     dayProgressPercent: todayState.dayProgressPercent,
   })
 
+  // ── Habit Loop State ──────────────────────────────────────────
+  const habitLoop = getHabitLoopState(todayState, adventure)
+
   // Comeback — show when first login today AND was away
   const showComeback = todayState.isFirstLoginToday && todayState.daysSinceLastVisit >= 1
 
@@ -177,7 +181,6 @@ export default async function DashboardPage() {
   // Milestone detection
   const prideMilestone = detectMilestone(child.level, todayState.currentDay, todayState.dayProgressPercent)
   const isNamedMilestone = prideMilestone?.type === "level" || prideMilestone?.type === "day"
-  const isDailyComplete  = prideMilestone?.type === "daily"
   const isDay30Complete  = todayState.currentDay === 30 && todayState.dayProgressPercent === 100
 
   // Next action for DailyHeroCard CTA
@@ -250,23 +253,29 @@ export default async function DashboardPage() {
         {/* ── Main column (2/3) ── */}
         <div className="lg:col-span-2 space-y-5">
 
-          {/* 3. TODAY — redesigned: 1 hero action + 2 secondary chips */}
+          {/* 3. TODAY — focus lock active when mid-loop (hero_started) */}
           <TodayLearningWidget
             state={todayState}
             adventure={adventure}
             activeMissionId={todayState.activeMissionId}
+            loopStage={habitLoop.loopStage}
+            shouldShowFocusLock={habitLoop.shouldShowFocusLock}
+            finnFocusLine={habitLoop.finnFocusLine}
           />
 
-          {/* 4. DAILY COMPLETION — lighter card on regular completed days */}
-          {isDailyComplete && (
-            <DailyCompletionCard firstName={child.firstName} currentDay={todayState.currentDay} />
-          )}
-
-          {/* 5. WHAT'S NEXT — tomorrow hook or season 2 */}
-          {isDay30Complete ? (
-            <Season2Teaser />
-          ) : todayState.dayProgressPercent === 100 && tomorrowPreview ? (
-            <TomorrowHookCard preview={tomorrowPreview} />
+          {/* 4. CLEAN CLOSURE — single session end screen when day_completed */}
+          {habitLoop.sessionEndDetected ? (
+            isDay30Complete ? (
+              <Season2Teaser />
+            ) : (
+              <SessionCompleteCard
+                firstName={child.firstName}
+                currentDay={todayState.currentDay}
+                xpReward={todayState.today.xpReward}
+                endMessage={habitLoop.endMessage}
+                tomorrowPreview={tomorrowPreview}
+              />
+            )
           ) : null}
 
           <RecentLessons lessons={recentLessons} />
