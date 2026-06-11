@@ -15,6 +15,8 @@ import { getTodayLearningState } from "@/src/lib/learning/todayState"
 import { getTomorrowPreview } from "@/src/lib/learning/tomorrowPreview"
 import { buildDailyMotivation } from "@/src/gamification/retention/dailyMotivation"
 import { getXpToNextLevel } from "@/src/gamification/retention/progression"
+import { DailyHeroCard } from "@/components/dashboard/daily-hero-card"
+import { getHeroTitle } from "@/src/lib/hero/titles"
 
 export const metadata: Metadata = { title: "Dashboard" }
 
@@ -127,6 +129,15 @@ export default async function DashboardPage() {
     currentDay: todayState.currentDay,
   })
 
+  const heroTitle = getHeroTitle(child.level)
+
+  // Next action href: first incomplete activity
+  const nextActionHref = !todayState.lessonDoneToday
+    ? nextLessonHref
+    : !todayState.quizDoneToday
+    ? nextQuizHref
+    : "/missions"
+
   const motivation = buildDailyMotivation(
     child.ageGroup,
     child.streakDays,
@@ -164,12 +175,22 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Hero CTA — ONE BIG BUTTON, primary retention surface */}
+      <DailyHeroCard
+        state={todayState}
+        nextActionHref={nextActionHref}
+        heroTitle={heroTitle}
+        streakDays={child.streakDays}
+        firstName={child.firstName}
+      />
+
       <WelcomeCard
         name={child.firstName}
         xp={child.xp}
         level={child.level}
         streakDays={child.streakDays}
         avatarUrl={child.avatarUrl}
+        heroTitle={heroTitle}
       />
 
       {/* Daily challenge + comeback — client component, shows on first login today */}

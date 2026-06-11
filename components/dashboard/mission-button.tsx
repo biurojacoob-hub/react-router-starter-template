@@ -4,6 +4,7 @@ import { useState, useTransition } from "react"
 import { Button } from "@/components/ui/button"
 import { startMission, completeMission } from "@/src/actions/learning/missionActions"
 import { XpToast } from "@/src/components/gamification/CelebrationModal"
+import { FINN, FINN_AFTER_MISSION, pickRandom } from "@/src/lib/hero/finn"
 
 interface MissionButtonProps {
   title: string
@@ -18,12 +19,14 @@ export function MissionButton({ title, description, isActive: initialActive }: M
   const [showXp, setShowXp] = useState(false)
   const [xpEarned, setXpEarned] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [finnMsg] = useState(() => pickRandom(FINN_AFTER_MISSION))
 
   if (isDone) {
     return (
       <>
         <XpToast xp={xpEarned} visible={showXp} onDone={() => setShowXp(false)} />
         <p className="text-xs text-emerald-600 font-semibold">✓ Misja ukończona! +{xpEarned} XP</p>
+        <p className="text-xs text-muted-foreground mt-1">{FINN.emoji} {finnMsg}</p>
       </>
     )
   }
