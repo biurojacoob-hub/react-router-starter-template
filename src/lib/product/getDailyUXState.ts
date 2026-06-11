@@ -1,11 +1,12 @@
 /**
  * getDailyUXState — composition layer only.
- * data → signals → policy → UI
+ * data → signals → contract → policy → UI
  *
  * No UX logic here. Add logic to:
- *   signals/  — domain metrics
- *   uxPolicyEngine — mode/tone decisions
- *   uxMapper — component prop assembly
+ *   signals/                 — domain metrics
+ *   dailyExperienceContract  — emotional intention for the day
+ *   uxPolicyEngine           — mode/tone decisions (constrained by contract)
+ *   uxMapper                 — component prop assembly
  */
 
 export type { UiMode, SessionState, VisualDensity, Milestone, DailyUXState, DailyUXInput } from "./types"
@@ -18,28 +19,18 @@ import {
   getRetentionSignals,
   type DomainSignals,
 } from "./signals"
+import { getDailyExperienceContract } from "./dailyExperienceContract"
 import { getUXPolicy } from "./uxPolicyEngine"
 import { mapToUXState } from "./uxMapper"
 
 export function getDailyUXState(input: DailyUXInput): DailyUXState {
-  const { childId, ageGroup, xp, level, streakDays, childCreatedAt, completedSkillIds,
+  const { childId, level, streakDays,
           lessonsCompleted, missionsCompleted, badgesEarned, todayState, nextLessonHref, nextQuizHref } = input
 
   // ── Layer 1: domain signals ───────────────────────────────────
-  const engagement = getEngagementSignals({
-    lessonsCompleted, missionsCompleted, streakDays,
-    daysSinceLastVisit: todayState.daysSinceLastVisit,
-    currentDay: todayState.currentDay,
-    level,
-    dayProgressPercent: todayState.dayProgressPercent,
-    heroActionDone: false,  // bootstrapped; learning signals resolve true value
-    isFirstLoginToday: todayState.isFirstLoginToday,
-  })
-
   const learning = getLearningSignals(todayState, nextLessonHref, nextQuizHref)
 
-  // Re-compute engagement with correct heroActionDone from learning signals
-  const engagementFinal = getEngagementSignals({
+  const engagement = getEngagementSignals({
     lessonsCompleted, missionsCompleted, streakDays,
     daysSinceLastVisit: todayState.daysSinceLastVisit,
     currentDay: todayState.currentDay,
@@ -52,7 +43,7 @@ export function getDailyUXState(input: DailyUXInput): DailyUXState {
   const emotional = getEmotionalSignals({
     todayState, learning, childId, streakDays, missionsCompleted,
     badgesEarned, level, lessonsCompleted,
-    finnEmotionalTone: engagementFinal.finnEmotionalTone,
+    finnEmotionalTone: engagement.finnEmotionalTone,
   })
 
   const retention = getRetentionSignals({
@@ -64,11 +55,14 @@ export function getDailyUXState(input: DailyUXInput): DailyUXState {
     isFirstLoginToday: todayState.isFirstLoginToday,
   })
 
-  const signals: DomainSignals = { engagement: engagementFinal, learning, emotional, retention }
+  const signals: DomainSignals = { engagement, learning, emotional, retention }
 
-  // ── Layer 2: UX policy ────────────────────────────────────────
-  const policy = getUXPolicy(signals, todayState)
+  // ── Layer 2: daily experience contract ────────────────────────
+  const contract = getDailyExperienceContract({ signals, todayState, level })
 
-  // ── Layer 3: presentation mapping ────────────────────────────
+  // ── Layer 3: UX policy (constrained by contract) ──────────────
+  const policy = getUXPolicy(signals, todayState, contract)
+
+  // ── Layer 4: presentation mapping ────────────────────────────
   return mapToUXState(input, signals, policy)
 }

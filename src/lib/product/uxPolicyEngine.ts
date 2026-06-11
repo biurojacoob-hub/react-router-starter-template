@@ -1,4 +1,5 @@
 import type { DomainSignals } from "./signals"
+import type { DailyExperienceContract } from "./dailyExperienceContract"
 import type { TodayLearningState } from "@/src/lib/learning/todayState"
 import type { UiMode, SessionState, VisualDensity } from "./types"
 
@@ -41,7 +42,19 @@ function resolveFinnLine(p: FinnLineParams): string {
   return p.defaultOpening
 }
 
-export function getUXPolicy(signals: DomainSignals, todayState: TodayLearningState): UXPolicy {
+// Contract enforcer — pins uiMode to the contract's allowed range.
+// Policy's candidate mode is accepted only if the contract permits it;
+// otherwise falls back to the first allowed mode.
+function enforceContractMode(candidate: UiMode, contract: DailyExperienceContract): UiMode {
+  if (contract.allowedUXModes.includes(candidate)) return candidate
+  return contract.allowedUXModes[0] ?? "EXPLORE"
+}
+
+export function getUXPolicy(
+  signals: DomainSignals,
+  todayState: TodayLearningState,
+  contract: DailyExperienceContract,
+): UXPolicy {
   const { engagement, learning, emotional, retention } = signals
 
   // ── Session state ─────────────────────────────────────────────
@@ -50,39 +63,48 @@ export function getUXPolicy(signals: DomainSignals, todayState: TodayLearningSta
     learning.heroActionDone ? "hero_done" :
     "active"
 
-  // ── Comeback / UI mode ────────────────────────────────────────
+  // ── Comeback ──────────────────────────────────────────────────
   const showComeback = todayState.isFirstLoginToday && todayState.daysSinceLastVisit >= 1
 
-  let uiMode: UiMode = "EXPLORE"
-  if (showComeback)                         uiMode = "COMEBACK"
-  else if (engagement.dailyLoad === "LOW")  uiMode = "RECOVERY"
-  else if (emotional.shouldShowFocusLock)   uiMode = "FOCUS"
+  // ── UI mode (candidate) ───────────────────────────────────────
+  let candidateMode: UiMode = "EXPLORE"
+  if (showComeback)                         candidateMode = "COMEBACK"
+  else if (engagement.dailyLoad === "LOW")  candidateMode = "RECOVERY"
+  else if (emotional.shouldShowFocusLock)   candidateMode = "FOCUS"
 
-  // ── Visual density ─────────────────────────────────────────────
-  const visualDensity: VisualDensity = engagement.dailyLoad
+  // Contract gates the candidate — today's emotional intention overrides raw signal
+  const uiMode = enforceContractMode(candidateMode, contract)
+
+  // ── Visual density — contract forbids HIGH on recovery/comeback ─
+  let visualDensity: VisualDensity = engagement.dailyLoad
+  if (contract.forbiddenStates.includes("HIGH_density") && visualDensity === "HIGH") {
+    visualDensity = "NORMAL"
+  }
 
   // ── Secondary actions count ────────────────────────────────────
-  const secondaryCount: 0 | 1 | 2 =
+  let secondaryCount: 0 | 1 | 2 =
     engagement.dailyLoad === "LOW"    ? 0 :
     engagement.dailyLoad === "NORMAL" ? 1 :
     2
+  if (contract.forbiddenStates.includes("secondary_count_2") && secondaryCount === 2) {
+    secondaryCount = 1
+  }
 
   // ── Finn lines ────────────────────────────────────────────────
   const finnLine = resolveFinnLine({
-    retentionPulse:   retention.pulseStatus,
-    retentionNudge:   retention.finnNudgeMessage,
-    pacingTone:       engagement.finnEmotionalTone,
+    retentionPulse:     retention.pulseStatus,
+    retentionNudge:     retention.finnNudgeMessage,
+    pacingTone:         engagement.finnEmotionalTone,
     pacingAdaptiveLine: emotional.finnAdaptiveLine,
-    focusLock:        emotional.shouldShowFocusLock,
-    focusFinnLine:    emotional.finnFocusLine,
-    memoryLine:       emotional.memoryLine,
-    defaultOpening:   learning.finnOpening,
+    focusLock:          emotional.shouldShowFocusLock,
+    focusFinnLine:      emotional.finnFocusLine,
+    memoryLine:         emotional.memoryLine,
+    defaultOpening:     learning.finnOpening,
     sessionState,
-    finnHeroComplete: learning.finnHeroComplete,
-    finnDayComplete:  learning.finnDayComplete,
+    finnHeroComplete:   learning.finnHeroComplete,
+    finnDayComplete:    learning.finnDayComplete,
   })
 
-  // AiMentor widget — growth comment takes priority over memory
   const finnChatLine = emotional.finnCommentOnGrowth ?? emotional.memoryLine ?? finnLine
 
   // ── Reward visibility ─────────────────────────────────────────
