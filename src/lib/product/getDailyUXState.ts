@@ -1,17 +1,23 @@
 /**
  * getDailyUXState — composition layer only.
- * data → signals → contract → policy → UI
+ * data → signals → contract → policy → mapper → UI
+ *                                   ↓
+ *                              uxSnapshot (observability, read-only)
  *
  * No UX logic here. Add logic to:
  *   signals/                 — domain metrics
  *   dailyExperienceContract  — emotional intention for the day
  *   uxPolicyEngine           — mode/tone decisions (constrained by contract)
  *   uxMapper                 — component prop assembly
+ *   uxSnapshot               — full reasoning trace (debug/observability)
  */
 
 export type { UiMode, SessionState, VisualDensity, Milestone, DailyUXState, DailyUXInput } from "./types"
+export type { UXSnapshot } from "./uxSnapshot"
+export type { DailyExperienceContract, ExperiencePromise } from "./dailyExperienceContract"
 
 import type { DailyUXInput, DailyUXState } from "./types"
+import type { UXSnapshot } from "./uxSnapshot"
 import {
   getEngagementSignals,
   getLearningSignals,
@@ -22,12 +28,14 @@ import {
 import { getDailyExperienceContract } from "./dailyExperienceContract"
 import { getUXPolicy } from "./uxPolicyEngine"
 import { mapToUXState } from "./uxMapper"
+import { getUXSnapshot } from "./uxSnapshot"
 
-export function getDailyUXState(input: DailyUXInput): DailyUXState {
+// ── Internal pipeline — shared by both exports ────────────────────────
+
+function runPipeline(input: DailyUXInput) {
   const { childId, level, streakDays,
           lessonsCompleted, missionsCompleted, badgesEarned, todayState, nextLessonHref, nextQuizHref } = input
 
-  // ── Layer 1: domain signals ───────────────────────────────────
   const learning = getLearningSignals(todayState, nextLessonHref, nextQuizHref)
 
   const engagement = getEngagementSignals({
@@ -56,13 +64,25 @@ export function getDailyUXState(input: DailyUXInput): DailyUXState {
   })
 
   const signals: DomainSignals = { engagement, learning, emotional, retention }
-
-  // ── Layer 2: daily experience contract ────────────────────────
   const contract = getDailyExperienceContract({ signals, todayState, level })
+  const policy   = getUXPolicy(signals, todayState, contract)
+  const ux       = mapToUXState(input, signals, policy)
 
-  // ── Layer 3: UX policy (constrained by contract) ──────────────
-  const policy = getUXPolicy(signals, todayState, contract)
+  return { signals, contract, policy, ux }
+}
 
-  // ── Layer 4: presentation mapping ────────────────────────────
-  return mapToUXState(input, signals, policy)
+// ── Public API ────────────────────────────────────────────────────────
+
+/** Production path — returns only the UI state. */
+export function getDailyUXState(input: DailyUXInput): DailyUXState {
+  return runPipeline(input).ux
+}
+
+/** Debug path — returns UI state + full observability snapshot. */
+export function getDailyUXStateWithSnapshot(
+  input: DailyUXInput,
+): { ux: DailyUXState; snapshot: UXSnapshot } {
+  const { signals, contract, policy, ux } = runPipeline(input)
+  const snapshot = getUXSnapshot(signals, contract, policy, ux)
+  return { ux, snapshot }
 }
