@@ -25,87 +25,102 @@ export default async function DashboardPage() {
   const session = await auth()
   if (!session?.user) redirect("/sign-in")
 
-  const child = await prisma.childProfile.findFirst({
-    where: { userId: session.user.id, deletedAt: null },
-    select: {
-      id: true,
-      firstName: true,
-      xp: true,
-      level: true,
-      streakDays: true,
-      avatarUrl: true,
-      ageGroup: true,
-      createdAt: true,
-      lastActiveAt: true,
-      badges: { select: { badge: { select: { id: true } } }, take: 100 },
-      lessonProgress: {
-        select: {
-          id: true,
-          completed: true,
-          lesson: {
-            select: {
-              id: true,
-              title: true,
-              xpReward: true,
-              course: { select: { title: true } },
+  let child
+  try {
+    child = await prisma.childProfile.findFirst({
+      where: { userId: session.user.id, deletedAt: null },
+      select: {
+        id: true,
+        firstName: true,
+        xp: true,
+        level: true,
+        streakDays: true,
+        avatarUrl: true,
+        ageGroup: true,
+        createdAt: true,
+        lastActiveAt: true,
+        badges: { select: { badge: { select: { id: true } } }, take: 100 },
+        lessonProgress: {
+          select: {
+            id: true,
+            completed: true,
+            lesson: {
+              select: {
+                id: true,
+                title: true,
+                xpReward: true,
+                course: { select: { title: true } },
+              },
             },
           },
+          orderBy: { updatedAt: "desc" },
+          take: 5,
         },
-        orderBy: { updatedAt: "desc" },
-        take: 5,
-      },
-      missionProgress: {
-        where: { status: "ACTIVE", deletedAt: null },
-        select: {
-          id: true,
-          startedAt: true,
-          mission: { select: { id: true, title: true, xpReward: true, coinReward: true, durationDays: true } },
-          checkIns: { select: { id: true } },
+        missionProgress: {
+          where: { status: "ACTIVE", deletedAt: null },
+          select: {
+            id: true,
+            startedAt: true,
+            mission: { select: { id: true, title: true, xpReward: true, coinReward: true, durationDays: true } },
+            checkIns: { select: { id: true } },
+          },
+          take: 3,
         },
-        take: 3,
+        skillProgress: {
+          where: { status: "COMPLETED" },
+          select: { skillId: true },
+        },
+        savingsGoals: {
+          where: { deletedAt: null, achieved: false },
+          select: { id: true, title: true, emoji: true, targetAmount: true, currentAmount: true },
+          orderBy: { createdAt: "asc" },
+          take: 3,
+        },
       },
-      skillProgress: {
-        where: { status: "COMPLETED" },
-        select: { skillId: true },
-      },
-      savingsGoals: {
-        where: { deletedAt: null, achieved: false },
-        select: { id: true, title: true, emoji: true, targetAmount: true, currentAmount: true },
-        orderBy: { createdAt: "asc" },
-        take: 3,
-      },
-    },
-  })
+    })
+  } catch (err) {
+    console.error("[dashboard] DB error fetching child profile", err)
+    redirect("/error")
+  }
 
   if (!child) redirect("/onboarding")
 
   const completedSkillIds = child.skillProgress.map((sp) => sp.skillId)
 
-  const [lessonsCompleted, missionsCompleted, todayState] = await Promise.all([
-    prisma.lessonProgress.count({ where: { childId: child.id, completed: true } }),
-    prisma.missionProgress.count({ where: { childId: child.id, status: "COMPLETED" } }),
-    getTodayLearningState({
-      childId: child.id,
-      ageGroup: child.ageGroup,
-      xp: child.xp,
-      level: child.level,
-      streakDays: child.streakDays,
-      childCreatedAt: child.createdAt,
-      lastActiveAt: child.lastActiveAt,
-      completedSkillIds,
-    }),
-  ])
+  let lessonsCompleted = 0
+  let missionsCompleted = 0
+  let todayState
+  let nextLesson
+  try {
+    ;[lessonsCompleted, missionsCompleted, todayState] = await Promise.all([
+      prisma.lessonProgress.count({ where: { childId: child.id, completed: true } }),
+      prisma.missionProgress.count({ where: { childId: child.id, status: "COMPLETED" } }),
+      getTodayLearningState({
+        childId: child.id,
+        ageGroup: child.ageGroup,
+        xp: child.xp,
+        level: child.level,
+        streakDays: child.streakDays,
+        childCreatedAt: child.createdAt,
+        lastActiveAt: child.lastActiveAt,
+        completedSkillIds,
+      }),
+    ])
 
-  const nextLesson = await prisma.lesson.findFirst({
-    where: {
-      published: true,
-      deletedAt: null,
-      course: { ageGroup: child.ageGroup, deletedAt: null },
-      progress: { none: { childId: child.id, completed: true } },
-    },
-    select: { id: true, courseId: true, quiz: { select: { id: true } } },
-    orderBy: [{ course: { orderIndex: "asc" } }, { orderIndex: "asc" }],
-  })
+    nextLesson = await prisma.lesson.findFirst({
+      where: {
+        published: true,
+        deletedAt: null,
+        course: { ageGroup: child.ageGroup, deletedAt: null },
+        progress: { none: { childId: child.id, completed: true } },
+      },
+      select: { id: true, courseId: true, quiz: { select: { id: true } } },
+      orderBy: [{ course: { orderIndex: "asc" } }, { orderIndex: "asc" }],
+    })
+  } catch (err) {
+    console.error("[dashboard] DB error loading learning state", err)
+    redirect("/error")
+  }
 
   const nextLessonHref = nextLesson ? `/courses/${nextLesson.courseId}/lessons/${nextLesson.id}` : "/courses"
   const nextQuizHref   = nextLesson?.quiz ? `/courses/${nextLesson.courseId}/lessons/${nextLesson.id}/quiz` : nextLessonHref
@@ -122,7 +137,7 @@ export default async function DashboardPage() {
     lessonsCompleted,
     missionsCompleted,
     badgesEarned: child.badges.length,
-    todayState,
+    todayState: todayState!,
     nextLessonHref,
     nextQuizHref,
   })

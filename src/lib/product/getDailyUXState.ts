@@ -71,11 +71,65 @@ function runPipeline(input: DailyUXInput) {
   return { signals, contract, policy, ux }
 }
 
+// ── Safe fallback — returned when the pipeline throws ─────────────────
+
+function makeFallbackUXState(input: DailyUXInput): DailyUXState {
+  const safeHref = input.nextLessonHref ?? "/courses"
+  return {
+    primaryAction: { type: "lesson", title: "Zacznij lekcję", href: safeHref, estimatedMin: 5, done: false, locked: false },
+    secondaryActions: [],
+    finnLine: "Chodź, zaczniemy od nowa!",
+    finnChatLine: "Hej! Jestem tu, żeby ci pomóc.",
+    uiMode: "EXPLORE",
+    visualDensity: "NORMAL",
+    pacingLabel: "",
+    dayProgressPercent: 0,
+    currentDay: 1,
+    dayTheme: "",
+    xpDisplay: input.xp ?? 0,
+    xpLabel: null,
+    sessionState: "active",
+    sessionEndDetected: false,
+    endMessage: "",
+    tomorrowPreview: null,
+    isDay30Complete: false,
+    showMap: false,
+    showDiscoveries: false,
+    nextBestActionHref: safeHref,
+    showComeback: false,
+    comebackDaysSince: 0,
+    comebackDailyReward: {
+      xpMultiplier: 1,
+      rareEventChance: 0,
+      rewardType: "normal",
+      rewardMessage: "",
+      isRare: false,
+    },
+    comebackFinnNudge: "",
+    showRareBanner: false,
+    rareBannerMessage: "",
+    prideMilestone: null,
+    heroTitle: { title: "Uczący się", emoji: "📚", tagline: "Zaczynamy!" },
+    activeMissionId: null,
+    missionTitle: "",
+    missionDescription: "",
+    missionRealLifeTask: "",
+    lessonHook: null,
+    pulseStatus: "SAFE",
+    growthTopStrength: "",
+  }
+}
+
 // ── Public API ────────────────────────────────────────────────────────
 
 /** Production path — returns only the UI state. */
 export function getDailyUXState(input: DailyUXInput): DailyUXState {
-  return runPipeline(input).ux
+  try {
+    return runPipeline(input).ux
+  } catch (err) {
+    console.error("[getDailyUXState] pipeline error — returning fallback", err)
+    return makeFallbackUXState(input)
+  }
 }
 
 /** Debug path — returns UI state + full observability snapshot. */

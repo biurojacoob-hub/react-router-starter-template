@@ -23,8 +23,23 @@ function createPrismaClient(): PrismaClient {
   })
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient()
+// Lazy singleton — defers initialization (and any throw) to first query,
+// not module load. Prevents cold-start crashes when DATABASE_URL is missing.
+let _client: PrismaClient | undefined
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma
+function getClient(): PrismaClient {
+  if (globalForPrisma.prisma) return globalForPrisma.prisma
+  if (_client) return _client
+  _client = createPrismaClient()
+  if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.prisma = _client
+  }
+  return _client
 }
+
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (getClient() as any)[prop]
+  },
+})
