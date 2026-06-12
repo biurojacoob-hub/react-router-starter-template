@@ -76,15 +76,3 @@ export const PRICING_PLANS = [
     highlighted: false,
   },
 ] as const;
-
-/* Demo data constants — replaced by real DB later */
-export const DEMO_USER = {
-  name: "Marek Kowalski",
-  childName: "Zosia",
-  childAge: 12,
-  avatar: "/avatars/parent.png",
-  childAvatar: "/avatars/child.png",
-  xp: 1240,
-  level: 5,
-  streak: 7,
-} as const;
