@@ -3,15 +3,11 @@ import Credentials from "next-auth/providers/credentials"
 import { CustomPrismaAdapter } from "@/src/lib/auth/prisma-adapter"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/src/lib/db"
-import type { UserRole } from "@prisma/client"
+import { authConfig } from "@/src/auth.config"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   adapter: CustomPrismaAdapter(prisma),
-  session: { strategy: "jwt" },
-  pages: {
-    signIn: "/sign-in",
-    error: "/sign-in",
-  },
   providers: [
     Credentials({
       credentials: {
@@ -59,31 +55,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
-  callbacks: {
-    async jwt({ token, user, trigger, session }) {
-      // Initial sign-in — copy user data into token
-      if (user) {
-        token.id = user.id as string
-        token.role = (user as { role: UserRole }).role
-        token.familyId = (user as { familyId: string | null }).familyId
-        token.onboardingDone = (user as { onboardingDone: boolean }).onboardingDone
-      }
-
-      // Handle session updates (e.g. after onboarding)
-      if (trigger === "update" && session) {
-        if (session.familyId !== undefined) token.familyId = session.familyId
-        if (session.onboardingDone !== undefined) token.onboardingDone = session.onboardingDone
-        if (session.role !== undefined) token.role = session.role
-      }
-
-      return token
-    },
-    async session({ session, token }) {
-      session.user.id = token.id as string
-      session.user.role = token.role as UserRole
-      session.user.familyId = token.familyId as string | null
-      session.user.onboardingDone = token.onboardingDone as boolean
-      return session
-    },
-  },
 })

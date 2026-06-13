@@ -1,7 +1,11 @@
-import { auth } from "@/src/auth"
+import NextAuth from "next-auth"
+import { authConfig } from "@/src/auth.config"
 import { NextResponse } from "next/server"
 import type { NextFetchEvent } from "next/server"
 import type { NextAuthRequest } from "next-auth"
+
+// Use edge-safe config (no Prisma) — middleware runs on Edge Runtime
+const { auth } = NextAuth(authConfig)
 
 const PROTECTED_PREFIXES = [
   "/dashboard",
