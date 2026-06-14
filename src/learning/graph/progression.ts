@@ -1,4 +1,4 @@
-import { SKILLS_BY_ID, ALL_SKILLS } from "./skills"
+import { SKILLS_BY_ID } from "./skills"
 import { getSkillsByAgeGroup, topologicalSort, getDependents } from "./graph"
 import { checkPrerequisites, getShortestPathTo } from "./prerequisites"
 import {
@@ -180,7 +180,7 @@ export function buildLearningPath(
 
 export function getSkillTree(
   child: ChildSkillState,
-  hasPremiumAccess = false
+  _hasPremiumAccess = false
 ): SkillNode[] {
   const ageGroupSkills = getSkillsByAgeGroup(child.ageGroup)
 

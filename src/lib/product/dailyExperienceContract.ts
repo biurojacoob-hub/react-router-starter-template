@@ -132,7 +132,7 @@ function deriveExperiencePromise(
   if (learning.allDone || dayProgressPercent >= 80) return "consolidation"
 
   // Milestone: named level or day milestone (stable per day)
-  const isLevelMilestone = [5, 10].includes(signals.engagement.boredomRisk > -1 ? 0 : 0)  // placeholder
+  const _isLevelMilestone = [5, 10].includes(signals.engagement.boredomRisk > -1 ? 0 : 0)  // placeholder
   const isDayMilestone = dayProgressPercent === 100 && [7, 14, 30].includes(currentDay)
   const isLevel5or10 = false  // resolved from input.level — see note below
   if (isDayMilestone || isLevel5or10) return "milestone"

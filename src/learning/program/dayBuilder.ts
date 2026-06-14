@@ -8,7 +8,7 @@ import {
   isReviewDay,
   getDifficultyLabel,
 } from "./difficultyCurve"
-import { buildEngagementLoop, getStreakMessage } from "./engagementLoop"
+import { buildEngagementLoop } from "./engagementLoop"
 import { getSessionTimeBudget } from "./sessionPlanner"
 import type {
   DailyProgramDay,
@@ -189,7 +189,7 @@ export function buildDay(
   const capstone = isCapstoneDay(day)
   const review = isReviewDay(day)
   const timeBudget = getSessionTimeBudget(phase)
-  const diffLabel = getDifficultyLabel(difficultyScore)
+  const _diffLabel = getDifficultyLabel(difficultyScore)
 
   const loop = buildEngagementLoop(
     child.ageGroup,

@@ -1,5 +1,5 @@
 import type { TodayLearningState } from "@/src/lib/learning/todayState"
-import { FINN, DAILY_START, DAY_COMPLETE, HERO_ACTION_COMPLETE, pickRandom } from "@/src/lib/hero/finn"
+import { DAY_COMPLETE, HERO_ACTION_COMPLETE, pickRandom } from "@/src/lib/hero/finn"
 
 export type HeroActionType = "lesson" | "quiz" | "mission"
 

@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useRef, useEffect, useTransition } from "react"
-import { Send, RefreshCw, Sparkles } from "lucide-react"
+import { useState, useRef, useEffect } from "react"
+import { Send, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"

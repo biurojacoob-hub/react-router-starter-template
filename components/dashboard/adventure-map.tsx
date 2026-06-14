@@ -46,7 +46,7 @@ export function AdventureMap({ currentDay, dayProgressPercent }: AdventureMapPro
           <div className="absolute left-[22px] top-6 bottom-6 w-0.5 bg-gradient-to-b from-primary/60 via-primary/20 to-muted/30" />
 
           <div className="space-y-3">
-            {WAYPOINTS.map((wp, i) => {
+            {WAYPOINTS.map((wp, _i) => {
               const status = waypointStatus(wp, currentDay, dayProgressPercent)
 
               return (

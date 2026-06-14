@@ -1,5 +1,5 @@
 import type { ProgressionSummary } from "./types"
-import { ALL_BADGES, BADGES_BY_ID } from "./rewards.achievements"
+import { ALL_BADGES } from "./rewards.achievements"
 import { ALL_SKILLS } from "@/src/learning/graph/skills"
 
 // ─────────────────────────────────────────────────────────────
