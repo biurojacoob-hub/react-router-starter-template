@@ -7,7 +7,6 @@ import {
   createSession,
   getSession,
   addMessageToSession,
-  getRecentMessages,
   recordMistakeInSession,
 } from "./memory"
 import { parseMentorResponse, getFallbackResponse } from "./responses"

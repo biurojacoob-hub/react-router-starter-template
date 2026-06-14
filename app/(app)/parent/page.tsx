@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Users, TrendingUp, Bell, Shield, Plus, BookOpen, Brain, Target, Zap } from "lucide-react";
+import { TrendingUp, Bell, Shield, Plus, BookOpen, Brain, Target, Zap } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

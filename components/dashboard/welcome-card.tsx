@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { Flame, Zap } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -26,7 +27,7 @@ export function WelcomeCard({ name, xp, level, streakDays, avatarUrl, heroTitle 
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-2xl">
               {avatarUrl ? (
-                <img src={avatarUrl} alt={name} className="h-full w-full rounded-2xl object-cover" />
+                <Image src={avatarUrl} alt={name} width={48} height={48} className="h-full w-full rounded-2xl object-cover" />
               ) : "🧒"}
             </div>
             <div>

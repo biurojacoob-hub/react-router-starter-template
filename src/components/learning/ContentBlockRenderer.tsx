@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import type { ContentBlock } from "@/src/lib/learning/types"
 import { cn } from "@/lib/utils"
 
@@ -22,8 +23,7 @@ export function ContentBlockRenderer({ block }: Props) {
       const c = block.content as { url: string; alt: string; caption?: string }
       return (
         <figure className="my-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={c.url} alt={c.alt} className="rounded-xl w-full object-cover max-h-80" />
+          <Image src={c.url} alt={c.alt} width={800} height={320} className="rounded-xl w-full object-cover max-h-80" />
           {c.caption && (
             <figcaption className="text-center text-xs text-muted-foreground mt-2">{c.caption}</figcaption>
           )}

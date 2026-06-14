@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
@@ -61,7 +62,7 @@ export function AppSidebar({ profile }: AppSidebarProps) {
           <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-3 hover:bg-muted/80 transition-colors cursor-pointer">
             <div className="flex h-10 w-10 items-center justify-center rounded-full gradient-brand text-white font-bold text-sm shrink-0">
               {profile?.avatarUrl ? (
-                <img src={profile.avatarUrl} alt={profile.name} className="h-full w-full rounded-full object-cover" />
+                <Image src={profile.avatarUrl} alt={profile.name} width={40} height={40} className="h-full w-full rounded-full object-cover" />
               ) : (
                 profile?.name?.[0]?.toUpperCase() ?? "?"
               )}

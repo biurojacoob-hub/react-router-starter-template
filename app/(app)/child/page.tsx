@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import Link from "next/link"
+import Image from "next/image"
 import { Star, Flame, Trophy, Zap } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -69,7 +70,7 @@ export default async function ChildPage() {
           <div className="flex items-end gap-4">
             <div className="flex h-20 w-20 items-center justify-center rounded-2xl border-4 border-background bg-white text-4xl shadow-lg overflow-hidden">
               {child.avatarUrl ? (
-                <img src={child.avatarUrl} alt={child.firstName} className="h-full w-full object-cover" />
+                <Image src={child.avatarUrl} alt={child.firstName} width={80} height={80} className="h-full w-full object-cover" />
               ) : "🧒"}
             </div>
             <div className="mb-1">

@@ -48,7 +48,6 @@ export function AdventureMap({ currentDay, dayProgressPercent }: AdventureMapPro
           <div className="space-y-3">
             {WAYPOINTS.map((wp, i) => {
               const status = waypointStatus(wp, currentDay, dayProgressPercent)
-              const isLast = i === WAYPOINTS.length - 1
 
               return (
                 <div key={wp.day} className="relative flex items-center gap-3">

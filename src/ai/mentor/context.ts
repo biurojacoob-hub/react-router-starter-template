@@ -1,9 +1,8 @@
 import { SKILLS_BY_ID, ALL_SKILLS } from "@/src/learning/graph/skills"
-import { getAvailableSkills, determineNextSkill } from "@/src/learning/graph/progression"
+import { getAvailableSkills } from "@/src/learning/graph/progression"
 import type { Skill, SkillCategory } from "@/src/learning/graph/types"
 import type { AgeGroup, MistakePattern } from "../types"
 import type { MentorChildContext } from "./types"
-import { buildMentorSafetyBlock } from "./safety"
 
 // ─────────────────────────────────────────────────────────────
 // BUILD CHILD CONTEXT from raw DB data

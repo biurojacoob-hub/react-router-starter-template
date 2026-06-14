@@ -14,7 +14,7 @@ interface DailyHeroCardProps {
   firstName: string
 }
 
-export function DailyHeroCard({ state, nextActionHref, heroTitle, streakDays, firstName }: DailyHeroCardProps) {
+export function DailyHeroCard({ state, nextActionHref, heroTitle, streakDays, firstName: _firstName }: DailyHeroCardProps) {
   const { today, currentDay, lessonDoneToday, quizDoneToday, missionDoneToday, dayProgressPercent } = state
   const allDone = lessonDoneToday && quizDoneToday && missionDoneToday
   const nothingDone = dayProgressPercent === 0

@@ -1,4 +1,3 @@
-import { ALL_SKILLS } from "@/src/learning/graph/skills"
 import { determineNextSkill } from "@/src/learning/graph/progression"
 import type { AgeGroup } from "../types"
 import type { MentorChildContext, ReasoningOutput, ExplanationStyle, ResponseLength, ShortTermMemory } from "./types"
