@@ -4,6 +4,7 @@ import type { UserRole } from "@prisma/client"
 // Edge-compatible auth config — NO Prisma, NO pg, NO Node.js-only imports.
 // Used by middleware (Edge Runtime). Full auth.ts adds the Prisma adapter + providers.
 export const authConfig = {
+  secret: process.env.AUTH_SECRET,
   session: { strategy: "jwt" },
   pages: {
     signIn: "/sign-in",
