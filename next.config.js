@@ -4,6 +4,10 @@ const nextConfig = {
   images: {
     remotePatterns: [],
   },
+  serverExternalPackages: ["@prisma/client"],
+  outputFileTracingIncludes: {
+    "/**": ["./node_modules/.prisma/**/*"],
+  },
 };
 
 module.exports = nextConfig;
