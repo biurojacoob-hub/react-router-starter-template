@@ -61,7 +61,8 @@ export async function signUpAction(
     })
   } catch (err) {
     console.error("[AUTH] signUpAction DB error:", err)
-    return { success: false, error: "Nie udało się utworzyć konta. Spróbuj ponownie." }
+    const msg = err instanceof Error ? err.message : String(err)
+    return { success: false, error: `DB ERROR: ${msg}` }
   }
 
   // Auto sign-in after registration
