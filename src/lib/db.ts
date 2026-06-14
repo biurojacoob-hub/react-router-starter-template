@@ -7,31 +7,51 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
+function resolveConnectionUrl(raw: string): PoolConfig {
+  try {
+    const u = new URL(raw)
+    const host = u.hostname
+    const password = decodeURIComponent(u.password)
+    const user = decodeURIComponent(u.username)
+
+    // Auto-convert Supabase direct URL (IPv6, blocked on Vercel) to Transaction Pooler
+    if (host.startsWith("db.") && host.endsWith(".supabase.co")) {
+      const projectRef = host.replace(/^db\./, "").replace(/\.supabase\.co$/, "")
+      const poolerHost = "aws-0-eu-west-1.pooler.supabase.com"
+      const poolerUser = `postgres.${projectRef}`
+      console.log(`[DB] Auto-converting direct URL to pooler: ${poolerHost} as ${poolerUser}`)
+      return {
+        host: poolerHost,
+        port: 6543,
+        database: "postgres",
+        user: poolerUser,
+        password,
+        ssl: { rejectUnauthorized: false },
+        max: 1,
+      }
+    }
+
+    return {
+      host,
+      port: u.port ? parseInt(u.port) : 5432,
+      database: u.pathname.replace(/^\//, ""),
+      user,
+      password,
+      ssl: { rejectUnauthorized: false },
+      max: 1,
+    }
+  } catch {
+    return { connectionString: raw, ssl: { rejectUnauthorized: false }, max: 1 }
+  }
+}
+
 function createClient(): PrismaClient {
   const url = process.env.DATABASE_URL
   if (!url) {
     console.error("[DB] DATABASE_URL is not set — all database queries will fail")
   }
   try {
-    // Parse URL manually so pg doesn't mishandle usernames with dots (pooler format)
-    let config: PoolConfig = { max: 1, ssl: { rejectUnauthorized: false } }
-    if (url) {
-      try {
-        const u = new URL(url)
-        config = {
-          host: u.hostname,
-          port: u.port ? parseInt(u.port) : 5432,
-          database: u.pathname.replace(/^\//, ""),
-          user: decodeURIComponent(u.username),
-          password: decodeURIComponent(u.password),
-          ssl: { rejectUnauthorized: false },
-          max: 1,
-        }
-        console.log(`[DB] Connecting to ${u.hostname}:${u.port || 5432} as ${decodeURIComponent(u.username)}`)
-      } catch {
-        config = { connectionString: url, ssl: { rejectUnauthorized: false }, max: 1 }
-      }
-    }
+    const config = url ? resolveConnectionUrl(url) : { ssl: { rejectUnauthorized: false }, max: 1 }
     const pool = new Pool(config)
     const adapter = new PrismaPg(pool)
     return new PrismaClient({ adapter })
