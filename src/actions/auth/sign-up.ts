@@ -62,7 +62,12 @@ export async function signUpAction(
   } catch (err) {
     console.error("[AUTH] signUpAction DB error:", err)
     const msg = err instanceof Error ? err.message : String(err)
-    return { success: false, error: `DB ERROR: ${msg}` }
+    let dbHost = "unknown"
+    try {
+      const u = new URL(process.env.DATABASE_URL ?? "")
+      dbHost = u.hostname
+    } catch {}
+    return { success: false, error: `DB HOST: ${dbHost} | ERROR: ${msg}` }
   }
 
   // Auto sign-in after registration
