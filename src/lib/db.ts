@@ -46,10 +46,12 @@ function resolveConnectionUrl(raw: string): PoolConfig {
 }
 
 function createClient(): PrismaClient {
-  const url = process.env.DATABASE_URL
+  // Prefer DATABASE_POOLER_URL (explicit pooler) over DATABASE_URL (may be overridden by integration)
+  const url = process.env.DATABASE_POOLER_URL ?? process.env.DATABASE_URL
   if (!url) {
-    console.error("[DB] DATABASE_URL is not set — all database queries will fail")
+    console.error("[DB] No database URL set — all database queries will fail")
   }
+  console.log(`[DB] Using URL from: ${process.env.DATABASE_POOLER_URL ? "DATABASE_POOLER_URL" : "DATABASE_URL"}`)
   try {
     const config = url ? resolveConnectionUrl(url) : { ssl: { rejectUnauthorized: false }, max: 1 }
     const pool = new Pool(config)
