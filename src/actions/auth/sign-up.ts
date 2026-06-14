@@ -35,20 +35,20 @@ export async function signUpAction(
   const { firstName, lastName, email, password } = parsed.data
   const lowerEmail = email.toLowerCase()
 
-  const exists = await prisma.user.findUnique({ where: { email: lowerEmail } })
-  if (exists) {
-    return { success: false, error: "Konto z tym adresem email już istnieje." }
-  }
+  try {
+    const exists = await prisma.user.findUnique({ where: { email: lowerEmail } })
+    if (exists) {
+      return { success: false, error: "Konto z tym adresem email już istnieje." }
+    }
 
-  const passwordHash = await bcrypt.hash(password, 12)
+    const passwordHash = await bcrypt.hash(password, 12)
 
-  // Create user + family in a single transaction
-  await prisma.$transaction(async (tx) => {
-    const family = await tx.family.create({
+    // Create family first, then user — sequential to avoid interactive transaction issues
+    const family = await prisma.family.create({
       data: { name: `Rodzina ${lastName}` },
     })
 
-    await tx.user.create({
+    await prisma.user.create({
       data: {
         firstName,
         lastName,
@@ -59,20 +59,25 @@ export async function signUpAction(
         onboardingDone: false,
       },
     })
-  })
+  } catch (err) {
+    console.error("[AUTH] signUpAction DB error:", err)
+    return { success: false, error: "Nie udało się utworzyć konta. Spróbuj ponownie." }
+  }
 
   // Auto sign-in after registration
   try {
     await signIn("credentials", {
       email: lowerEmail,
       password,
-      redirect: false,
+      redirectTo: "/onboarding",
     })
   } catch (e) {
     if (e instanceof AuthError) {
+      console.error("[AUTH] signUpAction auto-login failed:", e.type)
       // Account created but auto-login failed — user can sign in manually
       return { success: true }
     }
+    // NEXT_REDIRECT propagates on successful redirect
     throw e
   }
 

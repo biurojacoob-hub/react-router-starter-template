@@ -7,16 +7,24 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 function createClient(): PrismaClient {
-  if (!process.env.DATABASE_URL) {
-    console.error("[db] DATABASE_URL is not set — database queries will fail")
+  const url = process.env.DATABASE_URL
+  if (!url) {
+    console.error("[DB] DATABASE_URL is not set — all database queries will fail")
   }
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-  const adapter = new PrismaPg(pool)
-  return new PrismaClient({ adapter })
+  try {
+    const pool = new Pool({
+      connectionString: url,
+      max: 1, // Serverless: limit pool size to 1 per Lambda instance
+    })
+    const adapter = new PrismaPg(pool)
+    return new PrismaClient({ adapter })
+  } catch (err) {
+    console.error("[DB] Failed to create PrismaClient:", err)
+    throw err
+  }
 }
 
 export const prisma = globalForPrisma.prisma ?? createClient()
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma
-}
+// Cache in ALL environments to prevent connection pool leaks
+globalForPrisma.prisma = prisma

@@ -40,6 +40,7 @@ export async function signInAction(
     return { success: true }
   } catch (e) {
     if (e instanceof AuthError) {
+      console.error("[AUTH] signInAction AuthError:", e.type, e.message)
       switch (e.type) {
         case "CredentialsSignin":
           return { success: false, error: "Nieprawidłowy email lub hasło." }
@@ -47,7 +48,12 @@ export async function signInAction(
           return { success: false, error: "Coś poszło nie tak. Spróbuj ponownie." }
       }
     }
-    // signIn throws a NEXT_REDIRECT — let it propagate
+    // NEXT_REDIRECT is thrown on successful redirect — let it propagate
+    const isRedirect =
+      e instanceof Error && e.message === "NEXT_REDIRECT"
+    if (!isRedirect) {
+      console.error("[AUTH] signInAction unexpected error:", e)
+    }
     throw e
   }
 }
