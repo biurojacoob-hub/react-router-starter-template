@@ -8,9 +8,6 @@ const nextConfig = {
   outputFileTracingIncludes: {
     "/**": ["./node_modules/.prisma/**/*"],
   },
-  experimental: {
-    compatibilityFlags: [],
-  },
 };
 
-export default nextConfig;
+module.exports = nextConfig;
