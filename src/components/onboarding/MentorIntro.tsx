@@ -41,7 +41,7 @@ interface MentorIntroProps {
   onComplete: () => void
 }
 
-export function MentorIntro({ ageGroup, childAvatarId, childName, onComplete }: MentorIntroProps) {
+export function MentorIntro({ ageGroup, childAvatarId, childName: _childName, onComplete }: MentorIntroProps) {
   const script = MENTOR_SCRIPT[ageGroup]
   const [visibleCount, setVisibleCount] = useState(0)
   const bottomRef = useRef<HTMLDivElement>(null)

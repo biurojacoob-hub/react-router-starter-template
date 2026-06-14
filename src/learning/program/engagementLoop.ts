@@ -1,5 +1,5 @@
 import type { AgeGroup } from "@/src/learning/graph/types"
-import type { EngagementLoop, EngagementReward, ProgramPhase, ChildProgramState } from "./types"
+import type { EngagementLoop, EngagementReward, ProgramPhase } from "./types"
 
 // ─────────────────────────────────────────────────────────────
 // HOOK TEMPLATES — per phase and age group

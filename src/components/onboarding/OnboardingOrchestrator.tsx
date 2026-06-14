@@ -9,7 +9,6 @@ import { FirstChallenge } from "./FirstChallenge"
 import { FirstReward } from "./FirstReward"
 import { MentorIntro } from "./MentorIntro"
 import { type OnboardingState, type OnboardingStep } from "./types"
-import type { AvatarCategory } from "@/src/components/avatars/avatarData"
 import { saveChildOnboarding } from "@/src/actions/child/saveOnboarding"
 
 const STEPS: OnboardingStep[] = [

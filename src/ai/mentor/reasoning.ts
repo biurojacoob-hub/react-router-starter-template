@@ -141,7 +141,7 @@ const FOLLOW_UPS_BY_AGE: Record<AgeGroup, string[][]> = {
 function generateFollowUpQuestions(
   ageGroup: AgeGroup,
   turnCount: number,
-  topicFocus: string | null
+  _topicFocus: string | null
 ): string[] {
   const pool = FOLLOW_UPS_BY_AGE[ageGroup] ?? FOLLOW_UPS_BY_AGE.LEARNER
   const set = pool[turnCount % pool.length] ?? pool[0]!

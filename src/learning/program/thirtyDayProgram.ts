@@ -23,7 +23,7 @@ export function generateFull30DayProgram(child: ChildProgramState): ThirtyDayPro
   const weeks: WeekPlan[] = Array.from({ length: weeksCount }, (_, i) => {
     const week = i + 1
     const weekDays = days.filter((d) => getWeekForDay(d.day) === week)
-    const phase = weekDays[0]?.phase ?? "FOUNDATION"
+    const _phase = weekDays[0]?.phase ?? "FOUNDATION"
     return buildWeekPlan(week, weekDays)
   })
 

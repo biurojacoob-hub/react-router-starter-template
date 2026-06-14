@@ -28,9 +28,9 @@ export type PacingInput = {
 
 export function getAdaptivePacingState(input: PacingInput): AdaptivePacingState {
   const {
-    lessonsCompleted, missionsCompleted, streakDays,
+    lessonsCompleted, missionsCompleted: _missionsCompleted, streakDays,
     daysSinceLastVisit, currentDay, level,
-    dayProgressPercent, heroActionDone, isFirstLoginToday,
+    dayProgressPercent, heroActionDone, isFirstLoginToday: _isFirstLoginToday,
   } = input
 
   // ── Engagement velocity ──────────────────────────────────────

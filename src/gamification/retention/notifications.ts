@@ -66,7 +66,7 @@ export function buildStreakAtRiskNotification(
 
 export function buildComebackNotification(
   absenceTier: AbsenceTier,
-  ageGroup: AgeGroup
+  _ageGroup: AgeGroup
 ): Notification {
   const titles: Record<AbsenceTier, string> = {
     ONE_DAY: "Wróć po dzienny bonus!",

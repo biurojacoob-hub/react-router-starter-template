@@ -41,7 +41,6 @@ export function DailyChallengeCard({
   challenge,
   isFirstLoginToday,
   comebackTier,
-  daysSinceLastVisit: _daysSinceLastVisit,
   streakDays,
 }: DailyChallengeCardProps) {
   const [dismissed, setDismissed] = useState(false)
@@ -119,7 +118,7 @@ export function DailyChallengeCard({
                 onClick={() => {
                   startTransition(async () => {
                     // Award challenge XP
-                    const _res = await recordDailyLogin()
+                    await recordDailyLogin()
                     setXpAwarded(15)
                     setShowXp(true)
                     setChallengeDone(true)

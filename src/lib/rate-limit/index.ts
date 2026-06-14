@@ -32,7 +32,7 @@ export type RateLimitResult =
 export function checkMentorRateLimit(childId: string): RateLimitResult {
   const t = now()
   const dayStart = startOfDayMs()
-  const minuteStart = t - 60_000
+  const _minuteStart = t - 60_000
 
   let entry = store.get(childId)
 

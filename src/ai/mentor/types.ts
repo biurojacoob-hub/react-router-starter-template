@@ -1,4 +1,4 @@
-import type { AgeGroup, Difficulty, MistakePattern } from "../types"
+import type { AgeGroup, MistakePattern } from "../types"
 import type { Skill, ChildSkillState, SkillCategory } from "@/src/learning/graph/types"
 
 // ─────────────────────────────────────────────────────────────
