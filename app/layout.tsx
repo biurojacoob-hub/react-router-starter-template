@@ -5,6 +5,8 @@ import { SessionProvider } from "@/src/components/auth/session-provider";
 import "./globals.css";
 import { APP_DESCRIPTION, APP_NAME } from "@/lib/constants";
 
+export const runtime = "nodejs";
+
 const inter = Inter({
   subsets: ["latin", "latin-ext"],
   variable: "--font-geist-sans",
