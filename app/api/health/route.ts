@@ -1,6 +1,5 @@
-import { prisma } from "@/src/lib/db"
-
 export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
 
 export async function GET(): Promise<Response> {
   const results: Record<string, unknown> = {}
@@ -8,7 +7,7 @@ export async function GET(): Promise<Response> {
   // 1. Check env vars
   results.env = {
     DATABASE_URL: process.env.DATABASE_URL
-      ? `SET (${process.env.DATABASE_URL.substring(0, 30)}...)`
+      ? `SET (${process.env.DATABASE_URL.substring(0, 50)}...)`
       : "MISSING",
     AUTH_SECRET: process.env.AUTH_SECRET
       ? `SET (${process.env.AUTH_SECRET.length} chars)`
@@ -20,28 +19,50 @@ export async function GET(): Promise<Response> {
     NODE_ENV: process.env.NODE_ENV,
   }
 
-  // 2. Test DB connection
+  // 2. Test raw pg connection (no Prisma)
   try {
-    const result = await prisma.$queryRaw<[{ now: Date }]>`SELECT NOW() as now`
-    results.db = { status: "OK", time: result[0]?.now }
+    const { Pool } = await import("pg")
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      max: 1,
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 5000,
+    })
+    const client = await pool.connect()
+    const res = await client.query("SELECT NOW() as now")
+    client.release()
+    await pool.end()
+    results.pg_direct = { status: "OK", time: res.rows[0]?.now }
   } catch (err) {
-    console.error("[HEALTH] DB error:", err)
-    results.db = {
+    console.error("[HEALTH] pg direct error:", err)
+    results.pg_direct = {
       status: "ERROR",
       message: err instanceof Error ? err.message : String(err),
     }
   }
 
-  // 3. Test table access
+  // 3. Test Prisma via dynamic import
   try {
+    const { PrismaClient } = await import("@prisma/client")
+    const { PrismaPg } = await import("@prisma/adapter-pg")
+    const { Pool } = await import("pg")
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      max: 1,
+      ssl: { rejectUnauthorized: false },
+    })
+    const adapter = new PrismaPg(pool)
+    const prisma = new PrismaClient({ adapter })
+    const result = await prisma.$queryRaw<[{ now: Date }]>`SELECT NOW() as now`
     const userCount = await prisma.user.count()
-    const sessionCount = await prisma.session.count()
-    results.tables = { status: "OK", users: userCount, sessions: sessionCount }
+    await prisma.$disconnect()
+    results.prisma = { status: "OK", time: result[0]?.now, userCount }
   } catch (err) {
-    console.error("[HEALTH] Table error:", err)
-    results.tables = {
+    console.error("[HEALTH] Prisma error:", err)
+    results.prisma = {
       status: "ERROR",
       message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack?.split("\n").slice(0, 5).join(" | ") : undefined,
     }
   }
 
@@ -61,7 +82,6 @@ export async function GET(): Promise<Response> {
     }
   }
 
-  console.log("[HEALTH] Diagnostic result:", JSON.stringify(results, null, 2))
-
+  console.log("[HEALTH] Result:", JSON.stringify(results, null, 2))
   return Response.json(results)
 }
