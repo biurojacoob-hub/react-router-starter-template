@@ -15,6 +15,7 @@ function createClient(): PrismaClient {
     const pool = new Pool({
       connectionString: url,
       max: 1, // Serverless: limit pool size to 1 per Lambda instance
+      ssl: { rejectUnauthorized: false }, // Supabase requires SSL
     })
     const adapter = new PrismaPg(pool)
     return new PrismaClient({ adapter })

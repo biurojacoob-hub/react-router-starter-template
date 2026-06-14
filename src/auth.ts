@@ -17,23 +17,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null
 
-        const user = await prisma.user.findUnique({
-          where: {
-            email: (credentials.email as string).toLowerCase(),
-            deletedAt: null,
-          },
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            passwordHash: true,
-            role: true,
-            familyId: true,
-            onboardingDone: true,
-            image: true,
-          },
-        })
+        let user
+        try {
+          user = await prisma.user.findUnique({
+            where: {
+              email: (credentials.email as string).toLowerCase(),
+              deletedAt: null,
+            },
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              passwordHash: true,
+              role: true,
+              familyId: true,
+              onboardingDone: true,
+              image: true,
+            },
+          })
+        } catch (err) {
+          console.error("[DB MIGRATION] authorize DB error:", err)
+          return null
+        }
 
         if (!user?.passwordHash) return null
 
