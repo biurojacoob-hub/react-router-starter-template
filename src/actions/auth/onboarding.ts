@@ -112,31 +112,36 @@ export async function saveStep4Action(
   _prev: OnboardingState,
   formData: FormData
 ): Promise<OnboardingState> {
-  const session = await requireAuth()
+  try {
+    const session = await requireAuth()
 
-  const goals = formData.getAll("goals") as string[]
-  const parsed = OnboardingStep4Schema.safeParse({ educationalGoals: goals })
-  if (!parsed.success) {
-    return { success: false, error: parsed.error.issues[0].message }
-  }
+    const goals = formData.getAll("goals") as string[]
+    const parsed = OnboardingStep4Schema.safeParse({ educationalGoals: goals })
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message }
+    }
 
-  if (!session.user.familyId) {
-    return { success: false, error: "Brak przypisanej rodziny." }
-  }
+    if (!session.user.familyId) {
+      return { success: false, error: "Brak przypisanej rodziny." }
+    }
 
-  await prisma.$transaction([
-    prisma.family.update({
+    await prisma.family.update({
       where: { id: session.user.familyId },
       data: {
         educationalGoals: parsed.data.educationalGoals,
         onboardingDone: true,
       },
-    }),
-    prisma.user.update({
+    })
+
+    await prisma.user.update({
       where: { id: session.user.id },
       data: { onboardingDone: true },
-    }),
-  ])
+    })
 
-  return { success: true }
+    return { success: true }
+  } catch (err) {
+    console.error("[ONBOARDING] saveStep4Action error:", err)
+    const msg = err instanceof Error ? err.message : String(err)
+    return { success: false, error: `Błąd zapisu: ${msg}` }
+  }
 }
