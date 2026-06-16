@@ -1,8 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
 import { CheckCircle2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { OnboardingStep1 } from "@/src/components/auth/onboarding-step1"
@@ -18,16 +16,13 @@ const STEPS = [
 ]
 
 export default function OnboardingPage() {
-  const router = useRouter()
-  const { update } = useSession()
   const [step, setStep] = useState(0)
   const [data, setData] = useState({ childrenCount: 1 })
 
   const next = () => setStep((s) => s + 1)
 
-  const finish = async () => {
-    await update({ onboardingDone: true })
-    // Full navigation so middleware sees the refreshed JWT cookie
+  // Server action already set onboarding_done cookie — just navigate
+  const finish = () => {
     window.location.href = "/dashboard"
   }
 

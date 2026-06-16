@@ -68,7 +68,9 @@ export async function middleware(req: NextRequest) {
   }
 
   // Require onboarding before accessing app
-  if (isAuthenticated && !onboardingDone && POST_ONBOARDING_PREFIXES.some((p) => pathname.startsWith(p))) {
+  // Also pass through if onboarding_done cookie is set (JWT not yet refreshed after step 4)
+  const justFinishedOnboarding = req.cookies.get("onboarding_done")?.value === "1"
+  if (isAuthenticated && !onboardingDone && !justFinishedOnboarding && POST_ONBOARDING_PREFIXES.some((p) => pathname.startsWith(p))) {
     const dest = role === "CHILD" ? "/child/welcome" : "/onboarding"
     return NextResponse.redirect(new URL(dest, req.url))
   }

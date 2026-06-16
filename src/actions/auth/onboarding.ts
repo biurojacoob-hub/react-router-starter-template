@@ -1,5 +1,6 @@
 "use server"
 
+import { cookies } from "next/headers"
 import { prisma } from "@/src/lib/db"
 import { requireAuth } from "@/src/lib/auth/guards"
 import {
@@ -136,6 +137,15 @@ export async function saveStep4Action(
     await prisma.user.update({
       where: { id: session.user.id },
       data: { onboardingDone: true },
+    })
+
+    // Set a short-lived cookie so middleware allows /dashboard before JWT refreshes
+    const cookieStore = await cookies()
+    cookieStore.set("onboarding_done", "1", {
+      path: "/",
+      maxAge: 300,
+      httpOnly: false,
+      sameSite: "lax",
     })
 
     return { success: true }
