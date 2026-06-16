@@ -83,7 +83,25 @@ export default async function DashboardPage() {
     redirect("/error")
   }
 
-  if (!child) redirect("/onboarding")
+  if (!child) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center gap-6">
+        <div className="text-6xl">👨‍👧‍👦</div>
+        <div className="space-y-2">
+          <h2 className="text-2xl font-bold">Brak profili dziecka</h2>
+          <p className="text-muted-foreground max-w-sm">
+            Skonfiguruj profil swojego dziecka, żeby zacząć naukę finansów.
+          </p>
+        </div>
+        <a
+          href="/onboarding"
+          className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+        >
+          Zacznij tutaj →
+        </a>
+      </div>
+    )
+  }
 
   const completedSkillIds = child.skillProgress.map((sp) => sp.skillId)
 
