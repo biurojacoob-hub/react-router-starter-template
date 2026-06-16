@@ -27,7 +27,8 @@ export default function OnboardingPage() {
 
   const finish = async () => {
     await update({ onboardingDone: true })
-    router.push("/dashboard")
+    // Full navigation so middleware sees the refreshed JWT cookie
+    window.location.href = "/dashboard"
   }
 
   return (
