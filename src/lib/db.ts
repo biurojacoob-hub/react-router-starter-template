@@ -46,12 +46,26 @@ function resolveConnectionUrl(raw: string): PoolConfig {
 }
 
 function createClient(): PrismaClient {
-  // Prefer DATABASE_POOLER_URL (explicit pooler) over DATABASE_URL (may be overridden by integration)
-  const url = process.env.DATABASE_POOLER_URL ?? process.env.DATABASE_URL
+  // Priority order:
+  // 1. DATABASE_POOLER_URL — explicit pooler URL (user-set)
+  // 2. POSTGRES_PRISMA_URL — Supabase integration: transaction pooler, Prisma-ready
+  // 3. POSTGRES_URL — Supabase integration: session pooler
+  // 4. DATABASE_URL — may be overridden by integration to IPv6 direct URL
+  const urlSource =
+    process.env.DATABASE_POOLER_URL ? "DATABASE_POOLER_URL" :
+    process.env.POSTGRES_PRISMA_URL ? "POSTGRES_PRISMA_URL" :
+    process.env.POSTGRES_URL ? "POSTGRES_URL" :
+    "DATABASE_URL"
+  const url =
+    process.env.DATABASE_POOLER_URL ??
+    process.env.POSTGRES_PRISMA_URL ??
+    process.env.POSTGRES_URL ??
+    process.env.DATABASE_URL
+
   if (!url) {
     console.error("[DB] No database URL set — all database queries will fail")
   }
-  console.log(`[DB] Using URL from: ${process.env.DATABASE_POOLER_URL ? "DATABASE_POOLER_URL" : "DATABASE_URL"}`)
+  console.log(`[DB] Using URL from: ${urlSource}`)
   try {
     const config = url ? resolveConnectionUrl(url) : { ssl: { rejectUnauthorized: false }, max: 1 }
     const pool = new Pool(config)
