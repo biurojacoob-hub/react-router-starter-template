@@ -14,7 +14,7 @@ export default async function AiMentorPage() {
   if (!session?.user) redirect("/sign-in")
 
   const child = await prisma.childProfile.findFirst({
-    where: { userId: session.user.id, deletedAt: null },
+    where: { parentId: session.user.id, deletedAt: null },
     select: { id: true, firstName: true, ageGroup: true, level: true, streakDays: true },
   })
 

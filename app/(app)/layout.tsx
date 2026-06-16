@@ -8,7 +8,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const child = session?.user
     ? await prisma.childProfile.findFirst({
-        where: { userId: session.user.id, deletedAt: null },
+        where: { parentId: session.user.id, deletedAt: null },
         select: {
           firstName: true,
           xp: true,

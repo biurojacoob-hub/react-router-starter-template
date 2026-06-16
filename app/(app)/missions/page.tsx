@@ -25,7 +25,7 @@ export default async function MissionsPage() {
   if (!session?.user) redirect("/sign-in")
 
   const child = await prisma.childProfile.findFirst({
-    where: { userId: session.user.id, deletedAt: null },
+    where: { parentId: session.user.id, deletedAt: null },
     select: {
       id: true,
       ageGroup: true,

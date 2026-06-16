@@ -28,7 +28,7 @@ export default async function DashboardPage() {
   let child
   try {
     child = await prisma.childProfile.findFirst({
-      where: { userId: session.user.id, deletedAt: null },
+      where: { parentId: session.user.id, deletedAt: null },
       select: {
         id: true,
         firstName: true,
