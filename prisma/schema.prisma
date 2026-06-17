@@ -236,6 +236,7 @@ model ChildProfile {
   birthYear  Int
   ageGroup   AgeGroup
   avatarUrl  String?
+  timezone   String   @default("Europe/Warsaw")
 
   // Gamification state
   xp            Int      @default(0)
@@ -255,6 +256,7 @@ model ChildProfile {
   skillProgress        SkillProgress[]
   learningPathSnapshots LearningPathSnapshot[]
   quizAttempts    QuizAttempt[]
+  aiMentorUsage   AiMentorUsage[]
 
   deletedAt DateTime?
   createdAt DateTime  @default(now())
@@ -265,6 +267,23 @@ model ChildProfile {
   @@index([userId])
   @@index([ageGroup])
   @@index([deletedAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// AI MENTOR USAGE (DB-persisted rate limit)
+// ─────────────────────────────────────────────────────────────
+
+model AiMentorUsage {
+  id           String       @id @default(uuid()) @db.Uuid
+  childId      String       @db.Uuid
+  child        ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
+  month        String       // "2025-01"
+  messagesUsed Int          @default(0)
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([childId, month])
+  @@index([childId])
+  @@index([month])
 }
 
 // ─────────────────────────────────────────────────────────────
