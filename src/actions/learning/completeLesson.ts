@@ -27,6 +27,7 @@ export async function completeLesson(
         streakDays: true,
         longestStreak: true,
         lastStreakDate: true,
+        timezone: true,
         badges: { select: { badge: { select: { code: true } } } },
       },
     })
@@ -55,7 +56,8 @@ export async function completeLesson(
     const streakUpdate = computeStreakUpdate(
       child.lastStreakDate,
       child.streakDays,
-      child.longestStreak
+      child.longestStreak,
+      child.timezone ?? "Europe/Warsaw"
     )
 
     const newTotalXp = child.xp + xpEarned

@@ -2,6 +2,8 @@
 
 import { auth } from "@/src/auth"
 import { prisma } from "@/src/lib/db"
+import { xpToLevel } from "@/src/lib/learning/xp"
+import { logger } from "@/src/lib/logger"
 
 const MISSION_XP = 50
 const MISSION_COINS = 10
@@ -40,7 +42,7 @@ export async function startMission(
     if (!session?.user) return { error: "Unauthorized" }
 
     const child = await prisma.childProfile.findFirst({
-      where: { userId: session.user.id, deletedAt: null },
+      where: { parentId: session.user.id, deletedAt: null },
       select: { id: true },
     })
     if (!child) return { error: "Child not found" }
@@ -74,7 +76,7 @@ export async function completeMission(
     if (!session?.user) return { error: "Unauthorized" }
 
     const child = await prisma.childProfile.findFirst({
-      where: { userId: session.user.id, deletedAt: null },
+      where: { parentId: session.user.id, deletedAt: null },
       select: { id: true, xp: true },
     })
     if (!child) return { error: "Child not found" }
@@ -90,8 +92,11 @@ export async function completeMission(
     const alreadyDone = existing?.status === "COMPLETED"
     const xpEarned = alreadyDone ? 0 : MISSION_XP
 
-    if (existing) {
-      if (!alreadyDone) {
+    if (!alreadyDone) {
+      const newXp = child.xp + MISSION_XP
+      const newLevel = xpToLevel(newXp)
+
+      if (existing) {
         await prisma.$transaction([
           prisma.missionProgress.update({
             where: { id: existing.id },
@@ -99,30 +104,38 @@ export async function completeMission(
           }),
           prisma.childProfile.update({
             where: { id: child.id },
-            data: { xp: { increment: MISSION_XP }, lastActiveAt: new Date() },
+            data: { xp: newXp, level: newLevel, lastActiveAt: new Date() },
+          }),
+        ])
+      } else {
+        await prisma.$transaction([
+          prisma.missionProgress.create({
+            data: {
+              childId: child.id,
+              missionId: mission.id,
+              status: "COMPLETED",
+              completedAt: new Date(),
+            },
+          }),
+          prisma.childProfile.update({
+            where: { id: child.id },
+            data: { xp: newXp, level: newLevel, lastActiveAt: new Date() },
           }),
         ])
       }
-    } else {
-      await prisma.$transaction([
-        prisma.missionProgress.create({
-          data: {
-            childId: child.id,
-            missionId: mission.id,
-            status: "COMPLETED",
-            completedAt: new Date(),
-          },
-        }),
-        prisma.childProfile.update({
-          where: { id: child.id },
-          data: { xp: { increment: MISSION_XP }, lastActiveAt: new Date() },
-        }),
-      ])
+
+      logger.mission.info("Mission completed, XP awarded", {
+        childId: child.id,
+        missionTitle,
+        xpEarned,
+        newXp,
+        newLevel,
+      })
     }
 
     return { xpEarned }
   } catch (err) {
-    console.error("[completeMission]", err)
+    logger.mission.error("completeMission failed", err)
     return { error: "Wystąpił błąd" }
   }
 }

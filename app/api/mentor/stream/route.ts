@@ -6,7 +6,8 @@ import {
   createSession,
   streamResponse,
 } from "@/src/ai/mentor"
-import { checkMentorRateLimit, rateLimitErrorMessage } from "@/src/lib/rate-limit"
+import { checkAndIncrementMentorUsage, mentorRateLimitMessage } from "@/src/lib/ai-mentor-usage"
+import { logger } from "@/src/lib/logger"
 import type { ChatMessage } from "@/src/ai/mentor/types"
 
 export const runtime = "nodejs"
@@ -32,10 +33,12 @@ export async function POST(req: Request): Promise<Response> {
       return new Response("Missing childId or message", { status: 400 })
     }
 
-    // Rate limiting
-    const rateCheck = checkMentorRateLimit(childId)
+    // DB-based rate limiting (survives deploys)
+    const isPremium = false // TODO: check subscription when billing is added
+    const rateCheck = await checkAndIncrementMentorUsage(childId, isPremium)
     if (!rateCheck.allowed) {
-      const msg = rateLimitErrorMessage(rateCheck.reason)
+      const msg = mentorRateLimitMessage(rateCheck.reason)
+      logger.ai.warn("Rate limit hit", { childId, reason: rateCheck.reason })
       return new Response(
         JSON.stringify({ error: msg, code: rateCheck.reason }),
         {

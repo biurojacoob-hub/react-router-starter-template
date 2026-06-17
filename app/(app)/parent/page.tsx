@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import { TrendingUp, Bell, Shield, Plus, BookOpen, Brain, Target, Zap } from "lucide-react";
+import { TrendingUp, BookOpen, Brain, Target, Zap } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { requireAuth } from "@/src/lib/auth/guards";
@@ -118,14 +117,9 @@ export default async function ParentPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Panel rodzica</h1>
-          <p className="text-muted-foreground text-sm mt-1">Śledź postępy i zarządzaj kontem rodziny</p>
-        </div>
-        <Button variant="gradient">
-          <Plus className="h-4 w-4 mr-2" /> Dodaj dziecko
-        </Button>
+      <div>
+        <h1 className="text-2xl font-bold">Panel rodzica</h1>
+        <p className="text-muted-foreground text-sm mt-1">Śledź postępy dzieci w rodzinie</p>
       </div>
 
       {children.length === 0 ? (
@@ -138,9 +132,7 @@ export default async function ParentPage() {
                 Zaproś dziecko do rodziny lub poczekaj, aż dziecko ukończy onboarding.
               </p>
             </div>
-            <Button variant="gradient">
-              <Plus className="h-4 w-4 mr-2" /> Dodaj dziecko
-            </Button>
+            <p className="text-xs text-muted-foreground">Poproś dziecko o założenie konta — dołączy do rodziny automatycznie.</p>
           </CardContent>
         </Card>
       ) : (
@@ -187,36 +179,12 @@ export default async function ParentPage() {
                     <span>{progressPercent}%</span>
                   </div>
                   <Progress value={progressPercent} className="h-2" indicatorClassName="bg-sky-500" />
-                  <Button variant="outline" size="sm" className="w-full mt-4">
-                    Zobacz szczegóły
-                  </Button>
                 </CardContent>
               </Card>
             );
           })}
         </div>
       )}
-
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-        {[
-          { icon: TrendingUp, title: "Raporty postępu", desc: "Tygodniowe i miesięczne podsumowania aktywności dziecka.", color: "text-sky-600", bg: "bg-sky-50 dark:bg-sky-900/20" },
-          { icon: Bell, title: "Powiadomienia", desc: "Alerty o ukończonych lekcjach, misjach i osiągnięciach.", color: "text-violet-600", bg: "bg-violet-50 dark:bg-violet-900/20" },
-          { icon: Shield, title: "Kontrola rodzicielska", desc: "Zarządzaj dostępem, czasem nauki i nagrodami.", color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
-        ].map((item) => {
-          const Icon = item.icon;
-          return (
-            <Card key={item.title} className="cursor-pointer hover:-translate-y-1 transition-all">
-              <CardContent className="p-6">
-                <div className={`inline-flex h-11 w-11 items-center justify-center rounded-xl ${item.bg} mb-3`}>
-                  <Icon className={`h-5 w-5 ${item.color}`} />
-                </div>
-                <h3 className="font-semibold mb-1">{item.title}</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">{item.desc}</p>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
 
       {weeklyInsights.length > 0 && (
         <Card>
