@@ -11,14 +11,16 @@ export const metadata: Metadata = {
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ callbackUrl?: string; error?: string }>
+  searchParams: Promise<{ callbackUrl?: string; error?: string; invite?: string }>
 }) {
   const session = await auth()
   if (session?.user) {
     redirect(session.user.onboardingDone ? "/dashboard" : "/onboarding")
   }
 
-  const { callbackUrl, error } = await searchParams
+  const { callbackUrl, error, invite } = await searchParams
+  // If user arrives from an invite link, redirect back to apply it after login
+  const effectiveCallbackUrl = invite ? `/join/${invite}` : callbackUrl
 
   return (
     <div className="space-y-6">
@@ -33,7 +35,7 @@ export default async function SignInPage({
           Ten email jest już zarejestrowany inną metodą logowania.
         </div>
       )}
-      <SignInForm callbackUrl={callbackUrl} />
+      <SignInForm callbackUrl={effectiveCallbackUrl} />
     </div>
   )
 }

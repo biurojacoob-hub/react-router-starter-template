@@ -18,6 +18,8 @@ const PROTECTED_PREFIXES = [
   "/family",
   "/settings",
   "/ai-mentor",
+  "/courses",
+  "/discoveries",
 ]
 
 const AUTH_ONLY_ROUTES = ["/sign-in", "/sign-up"]
@@ -31,6 +33,8 @@ const POST_ONBOARDING_PREFIXES = [
   "/child",
   "/family",
   "/ai-mentor",
+  "/courses",
+  "/discoveries",
 ]
 
 export default auth(

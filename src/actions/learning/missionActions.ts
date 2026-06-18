@@ -42,7 +42,7 @@ export async function startMission(
     if (!session?.user) return { error: "Unauthorized" }
 
     const child = await prisma.childProfile.findFirst({
-      where: { parentId: session.user.id, deletedAt: null },
+      where: { userId: session.user.id, deletedAt: null },
       select: { id: true },
     })
     if (!child) return { error: "Child not found" }
@@ -76,7 +76,7 @@ export async function completeMission(
     if (!session?.user) return { error: "Unauthorized" }
 
     const child = await prisma.childProfile.findFirst({
-      where: { parentId: session.user.id, deletedAt: null },
+      where: { userId: session.user.id, deletedAt: null },
       select: { id: true, xp: true },
     })
     if (!child) return { error: "Child not found" }

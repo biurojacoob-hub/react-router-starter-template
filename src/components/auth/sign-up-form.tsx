@@ -10,21 +10,29 @@ import { AuthError } from "@/src/components/auth/auth-error"
 
 const initialState: SignUpState = { success: false }
 
-export function SignUpForm() {
+interface SignUpFormProps {
+  inviteCode?: string
+}
+
+export function SignUpForm({ inviteCode }: SignUpFormProps) {
   const router = useRouter()
   const [state, action, isPending] = useActionState(signUpAction, initialState)
 
   useEffect(() => {
-    if (state.success) router.push("/onboarding")
-  }, [state.success, router])
+    if (state.success) router.push(inviteCode ? "/child/welcome" : "/onboarding")
+  }, [state.success, router, inviteCode])
 
   return (
     <form action={action} className="space-y-5">
+      {inviteCode && (
+        <input type="hidden" name="inviteCode" value={inviteCode} />
+      )}
+
       <div className="grid grid-cols-2 gap-4">
         <AuthInput
           name="firstName"
           label="Imię"
-          placeholder="Marek"
+          placeholder="Zosia"
           autoComplete="given-name"
           error={state.fieldErrors?.firstName}
           disabled={isPending}
@@ -32,7 +40,7 @@ export function SignUpForm() {
         <AuthInput
           name="lastName"
           label="Nazwisko"
-          placeholder="Kowalski"
+          placeholder="Kowalska"
           autoComplete="family-name"
           error={state.fieldErrors?.lastName}
           disabled={isPending}
@@ -43,7 +51,7 @@ export function SignUpForm() {
         name="email"
         label="Adres email"
         type="email"
-        placeholder="marek@example.com"
+        placeholder="zosia@example.com"
         autoComplete="email"
         error={state.fieldErrors?.email}
         disabled={isPending}
@@ -67,7 +75,10 @@ export function SignUpForm() {
 
       <p className="text-center text-sm text-muted-foreground">
         Masz już konto?{" "}
-        <Link href="/sign-in" className="font-medium text-primary hover:underline">
+        <Link
+          href={inviteCode ? `/sign-in?invite=${inviteCode}` : "/sign-in"}
+          className="font-medium text-primary hover:underline"
+        >
           Zaloguj się
         </Link>
       </p>

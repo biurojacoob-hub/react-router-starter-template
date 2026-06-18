@@ -80,7 +80,7 @@ export default async function DashboardPage() {
     })
   } catch (err) {
     console.error("[dashboard] DB error fetching child profile", err)
-    redirect("/error")
+    throw err
   }
 
   if (!child) redirect("/onboarding")
@@ -119,7 +119,7 @@ export default async function DashboardPage() {
     })
   } catch (err) {
     console.error("[dashboard] DB error loading learning state", err)
-    redirect("/error")
+    throw err
   }
 
   const nextLessonHref = nextLesson ? `/courses/${nextLesson.courseId}/lessons/${nextLesson.id}` : "/courses"

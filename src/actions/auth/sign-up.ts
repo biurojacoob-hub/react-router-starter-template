@@ -5,6 +5,7 @@ import { prisma } from "@/src/lib/db"
 import { SignUpSchema } from "@/src/lib/auth/validation"
 import { signIn } from "@/src/auth"
 import { AuthError } from "next-auth"
+import { logger } from "@/src/lib/logger"
 
 export type SignUpState = {
   success: boolean
@@ -16,6 +17,8 @@ export async function signUpAction(
   _prev: SignUpState,
   formData: FormData
 ): Promise<SignUpState> {
+  const inviteCode = (formData.get("inviteCode") as string | null)?.trim() || null
+
   const raw = {
     firstName: formData.get("firstName"),
     lastName: formData.get("lastName"),
@@ -43,33 +46,66 @@ export async function signUpAction(
 
     const passwordHash = await bcrypt.hash(password, 12)
 
-    // Create family first, then user — sequential to avoid interactive transaction issues
-    const family = await prisma.family.create({
-      data: { name: `Rodzina ${lastName}` },
-    })
+    // If invite code provided — join existing family as CHILD
+    if (inviteCode) {
+      const invite = await prisma.familyInvite.findUnique({
+        where: { code: inviteCode },
+        select: { id: true, familyId: true, role: true, expiresAt: true, usedAt: true, deletedAt: true },
+      })
 
-    await prisma.user.create({
-      data: {
-        firstName,
-        lastName,
-        email: lowerEmail,
-        passwordHash,
-        role: "PARENT",
-        familyId: family.id,
-        onboardingDone: false,
-      },
-    })
+      if (!invite || invite.deletedAt || invite.usedAt || invite.expiresAt < new Date()) {
+        return { success: false, error: "Zaproszenie wygasło lub jest nieważne. Poproś rodzica o nowe." }
+      }
+
+      await prisma.$transaction([
+        prisma.user.create({
+          data: {
+            firstName,
+            lastName,
+            email: lowerEmail,
+            passwordHash,
+            role: invite.role as "CHILD" | "PARENT",
+            familyId: invite.familyId,
+            onboardingDone: false,
+          },
+        }),
+        prisma.familyInvite.update({
+          where: { id: invite.id },
+          data: { usedAt: new Date() },
+        }),
+      ])
+
+      logger.auth.info("Child registered via invite", { email: lowerEmail, familyId: invite.familyId })
+    } else {
+      // Create family first, then user — sequential to avoid interactive transaction issues
+      const family = await prisma.family.create({
+        data: { name: `Rodzina ${lastName}` },
+      })
+
+      await prisma.user.create({
+        data: {
+          firstName,
+          lastName,
+          email: lowerEmail,
+          passwordHash,
+          role: "PARENT",
+          familyId: family.id,
+          onboardingDone: false,
+        },
+      })
+    }
   } catch (err) {
-    console.error("[AUTH] signUpAction DB error:", err)
+    logger.auth.error("signUpAction DB error", err)
     return { success: false, error: "Nie udało się utworzyć konta. Spróbuj ponownie." }
   }
 
   // Auto sign-in after registration
+  const redirectTo = inviteCode ? "/child/welcome" : "/onboarding"
   try {
     await signIn("credentials", {
       email: lowerEmail,
       password,
-      redirectTo: "/onboarding",
+      redirectTo,
     })
   } catch (e) {
     if (e instanceof AuthError) {

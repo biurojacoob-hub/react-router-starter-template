@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk"
 import type { AIClientOptions } from "./types"
 
-const MODEL = "claude-opus-4-8"
+const MODEL = "claude-haiku-4-5-20251001"
 
 let _client: Anthropic | null = null
 
@@ -43,9 +43,7 @@ export async function generateText(
   return withRetry(async () => {
     const response = await client.messages.create({
       model: MODEL,
-      max_tokens: 8192,
-      thinking: { type: "adaptive" },
-      output_config: { effort: "high" },
+      max_tokens: 2048,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
     })
@@ -82,9 +80,7 @@ export async function* streamText(
 
   const stream = await client.messages.create({
     model: MODEL,
-    max_tokens: 8192,
-    thinking: { type: "adaptive", display: "summarized" },
-    output_config: { effort: "high" },
+    max_tokens: 2048,
     system: systemPrompt,
     messages: [{ role: "user", content: userMessage }],
     stream: true,
