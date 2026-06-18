@@ -6,23 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
 import { updateDisplayName, changePassword } from "@/src/actions/settings/updateProfile"
 import type { SettingsResult } from "@/src/actions/settings/updateProfile"
 
 const initialState: SettingsResult = { success: true }
-
-function StatusMessage({ state }: { state: SettingsResult }) {
-  if (state.success) return null
-  return (
-    <p className="text-sm text-destructive mt-2">{state.message}</p>
-  )
-}
-
-function SuccessBanner({ state }: { state: SettingsResult }) {
-  if (!state.success || !("_show" in state)) return null
-  return null
-}
 
 function DisplayNameForm() {
   const [state, action, pending] = useActionState(updateDisplayName, initialState)
@@ -30,9 +17,6 @@ function DisplayNameForm() {
     <form action={action} className="space-y-4">
       {state.success === false && (
         <p className="text-sm text-destructive">{state.message}</p>
-      )}
-      {(state as { success: true; _ok?: boolean })._ok && (
-        <p className="text-sm text-emerald-600">Zapisano pomyślnie.</p>
       )}
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { WelcomeWizard } from "./WelcomeWizard"
 import { AvatarPicker } from "./AvatarPicker"
 import { GoalSelector } from "./GoalSelector"
@@ -59,6 +60,7 @@ interface OnboardingOrchestratorProps {
 
 export function OnboardingOrchestrator({ onComplete }: OnboardingOrchestratorProps) {
   const router = useRouter()
+  const { update } = useSession()
   const [isPending, startTransition] = useTransition()
   const [saveError, setSaveError] = useState<string | null>(null)
   const [state, setState] = useState<OnboardingState>({
@@ -93,6 +95,7 @@ export function OnboardingOrchestrator({ onComplete }: OnboardingOrchestratorPro
         return
       }
 
+      await update({ onboardingDone: true })
       router.push("/dashboard")
     })
   }
