@@ -7,15 +7,11 @@ export async function GET(): Promise<Response> {
 
   // 1. Check env vars
   results.env = {
-    DATABASE_URL: process.env.DATABASE_URL
-      ? `SET (${process.env.DATABASE_URL.substring(0, 30)}...)`
-      : "MISSING",
+    DATABASE_URL: process.env.DATABASE_URL ? "SET" : "MISSING",
     AUTH_SECRET: process.env.AUTH_SECRET
       ? `SET (${process.env.AUTH_SECRET.length} chars)`
       : "MISSING",
-    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY
-      ? `SET (${process.env.ANTHROPIC_API_KEY.substring(0, 15)}...)`
-      : "MISSING",
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ? "SET" : "MISSING",
     NEXTAUTH_URL: process.env.NEXTAUTH_URL ?? "NOT SET (ok on Vercel)",
     NODE_ENV: process.env.NODE_ENV,
   }

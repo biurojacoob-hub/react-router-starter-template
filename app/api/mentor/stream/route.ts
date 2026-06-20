@@ -97,6 +97,8 @@ export async function POST(req: Request): Promise<Response> {
     const resolvedSessionId = sessionId ?? createSession(childId).sessionId
 
     const encoder = new TextEncoder()
+    const abort = new AbortController()
+    const timeoutId = setTimeout(() => abort.abort(), 25_000)
 
     const stream = new ReadableStream({
       async start(controller) {
@@ -106,13 +108,18 @@ export async function POST(req: Request): Promise<Response> {
             ctx,
             longTerm
           )) {
+            if (abort.signal.aborted) break
             controller.enqueue(encoder.encode(chunk))
           }
         } catch (err) {
-          console.error("[mentor/stream] streamResponse error:", err)
-          const fallback = "Przepraszam, coś poszło nie tak. Spróbuj ponownie za chwilę. 🙏"
-          controller.enqueue(encoder.encode(fallback))
+          if (abort.signal.aborted) {
+            controller.enqueue(encoder.encode("Przepraszam, mentor potrzebuje chwili przerwy. Spróbuj ponownie za moment. ⏱️"))
+          } else {
+            console.error("[mentor/stream] streamResponse error:", err)
+            controller.enqueue(encoder.encode("Przepraszam, coś poszło nie tak. Spróbuj ponownie za chwilę. 🙏"))
+          }
         } finally {
+          clearTimeout(timeoutId)
           controller.close()
         }
       },

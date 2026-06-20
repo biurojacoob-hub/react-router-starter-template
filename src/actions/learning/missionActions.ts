@@ -83,55 +83,54 @@ export async function completeMission(
 
     const mission = await findOrCreateMission(missionTitle, missionDescription)
 
-    // Upsert MissionProgress to COMPLETED
-    const existing = await prisma.missionProgress.findUnique({
-      where: { childId_missionId: { childId: child.id, missionId: mission.id } },
-      select: { id: true, status: true },
-    })
+    // Atomic check-and-award: status check and XP increment in a single transaction
+    // to prevent double-XP on concurrent requests (TOCTOU race condition).
+    const xpEarned = await prisma.$transaction(async (tx) => {
+      const existing = await tx.missionProgress.findUnique({
+        where: { childId_missionId: { childId: child.id, missionId: mission.id } },
+        select: { id: true, status: true },
+      })
 
-    const alreadyDone = existing?.status === "COMPLETED"
-    const xpEarned = alreadyDone ? 0 : MISSION_XP
+      if (existing?.status === "COMPLETED") return 0
 
-    if (!alreadyDone) {
-      const newXp = child.xp + MISSION_XP
+      const freshChild = await tx.childProfile.findUnique({
+        where: { id: child.id },
+        select: { xp: true },
+      })
+      const newXp = (freshChild?.xp ?? child.xp) + MISSION_XP
       const newLevel = xpToLevel(newXp)
 
       if (existing) {
-        await prisma.$transaction([
-          prisma.missionProgress.update({
-            where: { id: existing.id },
-            data: { status: "COMPLETED", completedAt: new Date() },
-          }),
-          prisma.childProfile.update({
-            where: { id: child.id },
-            data: { xp: newXp, level: newLevel, lastActiveAt: new Date() },
-          }),
-        ])
+        await tx.missionProgress.update({
+          where: { id: existing.id },
+          data: { status: "COMPLETED", completedAt: new Date() },
+        })
       } else {
-        await prisma.$transaction([
-          prisma.missionProgress.create({
-            data: {
-              childId: child.id,
-              missionId: mission.id,
-              status: "COMPLETED",
-              completedAt: new Date(),
-            },
-          }),
-          prisma.childProfile.update({
-            where: { id: child.id },
-            data: { xp: newXp, level: newLevel, lastActiveAt: new Date() },
-          }),
-        ])
+        await tx.missionProgress.create({
+          data: {
+            childId: child.id,
+            missionId: mission.id,
+            status: "COMPLETED",
+            completedAt: new Date(),
+          },
+        })
       }
+
+      await tx.childProfile.update({
+        where: { id: child.id },
+        data: { xp: newXp, level: newLevel, lastActiveAt: new Date() },
+      })
 
       logger.mission.info("Mission completed, XP awarded", {
         childId: child.id,
         missionTitle,
-        xpEarned,
+        xpEarned: MISSION_XP,
         newXp,
         newLevel,
       })
-    }
+
+      return MISSION_XP
+    })
 
     return { xpEarned }
   } catch (err) {
